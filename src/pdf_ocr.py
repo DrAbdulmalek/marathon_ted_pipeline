@@ -39,33 +39,65 @@ class PDFOCRProcessor:
         pix = page.get_pixmap(matrix=mat, alpha=False)
         return pix
 
-    def _ocr_image(self, pix) -> tuple[str, float]:
+    def _ocr_image(self, pix) -> tuple[str, float, dict]:
         import io
 
         import pytesseract
         from PIL import Image
 
-        img = Image.open(io.BytesIO(pix.tobytes("png")))
+        img = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
         data = pytesseract.image_to_data(
             img, lang=self.language, output_type=pytesseract.Output.DICT
         )
-        # إعادة بناء الأسطر مع متوسط الثقة
         lines: dict = {}
+        confs = []
+        visual_markers = []
+        visual_colors = []
         n = len(data["text"])
         for i in range(n):
             key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
             word = data["text"][i].strip()
             conf = float(data["conf"][i])
-            if word and conf >= 0:
-                lines.setdefault(key, []).append((word, conf))
-        text_lines, confs = [], []
+            if not word or conf < 0:
+                continue
+            lines.setdefault(key, []).append((word, conf))
+            confs.append(conf)
+            normalized = word.lower()
+            if normalized in {"x", "✗", "✘", "❌"}:
+                visual_markers.append("x")
+            elif normalized in {"✓", "✔", "✅"}:
+                visual_markers.append("check")
+
+            # Approximate color semantics from the OCR word bounding box.
+            try:
+                left, top = int(data["left"][i]), int(data["top"][i])
+                width, height = int(data["width"][i]), int(data["height"][i])
+                crop = img.crop((left, top, left + width, top + height))
+                pixels = list(crop.getdata())
+                if pixels:
+                    red = sum(1 for r,g,b in pixels if r > 150 and r > g * 1.35 and r > b * 1.35)
+                    green = sum(1 for r,g,b in pixels if g > 120 and g > r * 1.20 and g > b * 1.10)
+                    total = len(pixels)
+                    if red / total >= 0.12:
+                        visual_colors.append("red")
+                    elif green / total >= 0.12:
+                        visual_colors.append("green")
+            except Exception:
+                pass
+
+        text_lines, line_confs = [], []
         for key in sorted(lines):
             words = lines[key]
             text_lines.append(" ".join(w for w, _ in words))
-            confs.append(sum(c for _, c in words) / len(words))
+            line_confs.append(sum(c for _, c in words) / len(words))
         text = "\n".join(text_lines)
-        confidence = (sum(confs) / len(confs) / 100.0) if confs else 0.0
-        return text, confidence
+        confidence = (sum(line_confs) / len(line_confs) / 100.0) if line_confs else 0.0
+        evidence = {
+            "markers": sorted(set(visual_markers)),
+            "colors": sorted(set(visual_colors)),
+            "word_ratio": confidence,
+        }
+        return text, confidence, evidence
 
     # ---------- المعالجة ----------
     def process(self, pdf_path: Path) -> dict:
@@ -87,19 +119,26 @@ class PDFOCRProcessor:
 
         page_texts = []
         confidences = []
+        page_evidence = []
         for pno in range(len(doc)):
             page = doc[pno]
             pix = self._page_image(page, zoom)
-            text, conf = self._ocr_image(pix)
+            text, conf, evidence = self._ocr_image(pix)
             if text.strip():
                 page_texts.append(text)
                 confidences.append(conf)
+                # Keep only evidence actually observed; correctness remains uncertain unless markers/colors support it.
+                page_evidence.append(evidence)
         doc.close()
 
         raw_text = "\n\n".join(page_texts)
         avg_conf = (sum(confidences) / len(confidences)) if confidences else 0.0
 
-        result = self.proc.process_text(raw_text, confidence=avg_conf)
+        markers = sorted({m for e in page_evidence for m in e.get("markers", [])})
+        colors = sorted({c for e in page_evidence for c in e.get("colors", [])})
+        visual = self.proc.classify_visual_evidence(markers=markers, colors=colors, context={"pages": len(page_texts)})
+        visual["word_ratio"] = avg_conf
+        result = self.proc.process_text(raw_text, confidence=avg_conf, visual_evidence=visual)
         result["metadata"].update({
             "source_file": pdf_path.name,
             "source_type": "pdf",
@@ -107,6 +146,7 @@ class PDFOCRProcessor:
             "dpi": self.dpi,
             "ocr_language": self.language,
             "avg_confidence": round(avg_conf, 4),
+            "visual_evidence": visual,
             "processed_at": datetime.now(timezone.utc).isoformat(),
         })
         return result
