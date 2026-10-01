@@ -101,11 +101,11 @@ rules:
 
   - id: R14
     name: detect_visual_markers
-    description: "كشف الرموز والألوان في النص ( ⚠ ✔ ✖ 🔴 🟢 ) وعزلها كسِمات بصرية"
+    description: "كشف علامات الصحة/الخطأ والألوان عند توفرها وعزلها كدليل بصري؛ لا يستنتج الصحة من النص وحده"
     enabled: true
     category: separation
     params:
-      markers: ["⚠", "✔", "✖", "❌", "✅", "🔴", "🟢", "🟡", "⭐", "★", "※", "†", "‡"]
+      markers: ["✓", "✔", "✗", "✘", "X", "⚠", "✖", "❌", "✅", "🔴", "🟢", "🟡", "⭐", "★", "※", "†", "‡"]
 
   - id: R15
     name: flag_uncertain_words
@@ -119,11 +119,12 @@ rules:
 
   - id: R16
     name: separate_correct_vs_wrong
-    description: "فصل مخرجات OCR الصحيحة عن الخاطئة في ملفين — لا تدريب على نص مُضلَّل"
+    description: "فصل الصحيح والخاطئ فقط عند وجود دليل بصري/سياقي؛ نسبة سلامة OCR ليست دليل صحة"
     enabled: true
     category: separation
     params:
-      correct_ratio_threshold: 0.85   # نسبة الكلمات السليمة لقبول المقطع "صحيحًا"
+      require_visual_evidence: true
+      uncertain_status: "uncertain"
 
   - id: R17
     name: detect_lists_and_headings
@@ -135,7 +136,7 @@ rules:
 
   - id: R18
     name: extract_footnotes_tables
-    description: "عزل الحواشي السفلية (¹ ² أو (1)) والجداول البسيطة إلى أقسام مستقلة"
+    description: "عزل الحواشي والحفاظ على الجداول القابلة للتمثيل دون إسقاط علاقة الصفوف والأعمدة"
     enabled: true
     category: separation
 
