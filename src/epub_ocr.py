@@ -15,7 +15,9 @@ from .ocr_processor import OCRProcessor
 logger = logging.getLogger(__name__)
 
 _TAG_RE = re.compile(r"<[^>]+>")
-_BLOCK_TAGS = re.compile(r"</(p|div|h[1-6]|li|tr)>", re.I)
+_BLOCK_TAGS = re.compile(r"</(p|div|h[1-6]|li)>", re.I)
+_TABLE_ROW_RE = re.compile(r"<tr[^>]*>(.*?)</tr>", re.I | re.S)
+_CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.I | re.S)
 
 
 class EpubOCRProcessor:
@@ -35,10 +37,29 @@ class EpubOCRProcessor:
     # ---------- استخراج ----------
     def _extract_html_text(self, raw: bytes) -> str:
         html = raw.decode("utf-8", errors="ignore")
+
+        def table_to_markdown(match):
+            rows = []
+            for row_html in _TABLE_ROW_RE.findall(match.group(0)):
+                cells = []
+                for cell_html in _CELL_RE.findall(row_html):
+                    cell = _TAG_RE.sub("", cell_html)
+                    cell = re.sub(r"\\s+", " ", cell).strip().replace("|", "\\|")
+                    cells.append(cell)
+                if cells:
+                    rows.append("| " + " | ".join(cells) + " |")
+            if not rows:
+                return ""
+            width = max(len(_CELL_RE.findall(r)) for r in _TABLE_ROW_RE.findall(match.group(0)))
+            if width <= 0:
+                return ""
+            sep = "| " + " | ".join(["---"] * width) + " |"
+            return rows[0] + "\n" + sep + ("\n" + "\n".join(rows[1:]) if len(rows) > 1 else "")
+
+        html = re.sub(r"<table[^>]*>.*?</table>", table_to_markdown, html, flags=re.I | re.S)
         html = _BLOCK_TAGS.sub("\n", html)
         html = re.sub(r"<br\s*/?>", "\n", html, flags=re.I)
-        text = _TAG_RE.sub("", html)
-        return text
+        return _TAG_RE.sub("", html)
 
     def _ocr_chapter_images(self, book, chapter) -> str:
         """OCR للصور داخل الفصل (كتب ممسوحة ضوئيًا)."""
@@ -97,6 +118,7 @@ class EpubOCRProcessor:
         result = self.proc.process_text(raw_text, confidence=avg_conf)
         result["metadata"].update({
             "source_file": epub_path.name,
+            "tables_preserved_as_markdown": "|" in raw_text and "---" in raw_text,
             "source_type": "epub",
             "chapters": len(chapters),
             "ocr_used": ocr_used,
