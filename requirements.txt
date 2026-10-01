@@ -58,7 +58,7 @@ unbabel-comet>=2.2.0
 nltk>=3.8.1
 
 # A/B Testing
-scipy>=1.11.0
+scipy>=1.18.1
 
 # ASR
 faster-whisper>=1.0.0
