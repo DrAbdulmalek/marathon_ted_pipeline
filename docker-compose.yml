@@ -1,0 +1,213 @@
+version: "3.9"
+
+services:
+  # ==================== البنية التحتية ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: marathon_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ted2srt
+      POSTGRES_USER: ted
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-ted_secret_change_me}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ted -d ted2srt"]
+      interval: 10s
+      retries: 5
+    networks: [marathon_net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: marathon_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    networks: [marathon_net]
+
+  # ==================== بديل ted2srt ====================
+  ted2srt_py:
+    image: python:3.11-slim
+    container_name: marathon_ted2srt
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./ted2srt_py:/app
+    command: >
+      sh -c "apt-get update && apt-get install -y --no-install-recommends ffmpeg &&
+             pip install --no-cache-dir flask requests yt-dlp &&
+             python app.py"
+    environment:
+      PORT: 3002
+    networks: [marathon_net]
+
+  # ==================== التطبيق الرئيسي ====================
+  marathon_app:
+    build: .
+    image: marathon_ted:latest
+    container_name: marathon_app
+    restart: unless-stopped
+    depends_on:
+      - ted2srt_py
+      - redis
+    env_file: .env
+    environment:
+      TZ: UTC
+      TED2SRT_ENDPOINT: "http://ted2srt_py:3002"
+      REDIS_URL: "redis://redis:6379/0"
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+      - ./marathon_session.session:/app/marathon_session.session
+    command: ["python", "run.py"]
+    networks: [marathon_net]
+
+  # ==================== مراقب القناة ====================
+  marathon_monitor:
+    image: marathon_ted:latest
+    container_name: marathon_monitor
+    restart: unless-stopped
+    depends_on:
+      - marathon_app
+    env_file: .env
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+      - ./marathon_session.session:/app/marathon_session.session
+    command: ["python", "monitor.py"]
+    networks: [marathon_net]
+
+  # ==================== Queue Worker ====================
+  marathon_worker:
+    image: marathon_ted:latest
+    container_name: marathon_worker
+    restart: unless-stopped
+    depends_on:
+      - redis
+    env_file: .env
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+      - whisper_models:/root/.cache/huggingface
+    environment:
+      HF_HOME: /root/.cache/huggingface
+    command: ["python", "-m", "src.queue_worker"]
+    deploy:
+      replicas: 2   # عدد الـ workers
+    networks: [marathon_net]
+
+  # ==================== REST API ====================
+  marathon_api:
+    image: marathon_ted:latest
+    container_name: marathon_api
+    restart: unless-stopped
+    depends_on:
+      - redis
+    env_file: .env
+    ports:
+      - "127.0.0.1:8000:8000"   # Nginx فقط
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+    command: >
+      uvicorn src.api:app
+      --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips='*'
+    networks: [marathon_net]
+
+  # ==================== Dashboard ====================
+  marathon_dashboard:
+    image: marathon_ted:latest
+    container_name: marathon_dashboard
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8501:8501"   # Nginx فقط
+    env_file: .env
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+    command: >
+      streamlit run dashboard.py
+      --server.port 8501
+      --server.address 0.0.0.0
+      --server.headless true
+      --server.enableCORS false
+      --server.enableXsrfProtection true
+    networks: [marathon_net]
+
+  # ==================== بوت تيليجرام ====================
+  marathon_bot:
+    image: marathon_ted:latest
+    container_name: marathon_bot
+    restart: unless-stopped
+    depends_on:
+      - redis
+    env_file: .env
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      BOT_ADMINS: ${BOT_ADMINS}
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+    command: ["python", "bot.py"]
+    networks: [marathon_net]
+
+  # ==================== المراقبة ====================
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: marathon_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks: [marathon_net]
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: marathon_grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: ""
+      GF_SERVER_ROOT_URL: "https://marathon.yourdomain.com/grafana"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [marathon_net]
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: marathon_alertmanager
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+    networks: [marathon_net]
+
+volumes:
+  pgdata:
+  redisdata:
+  prometheus_data:   # ← جديد
+  grafana_data:      # ← جديد
+  whisper_models:
+
+networks:
+  marathon_net:
+    driver: bridge

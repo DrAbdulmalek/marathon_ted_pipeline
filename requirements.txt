@@ -1,0 +1,71 @@
+# Core
+telethon>=1.34.0
+pyyaml>=6.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Document processing
+pymupdf>=1.23.0
+ebooklib>=0.18
+pytesseract>=0.3.10
+Pillow>=10.0.0
+
+# UI & Data
+streamlit>=1.30.0
+plotly>=5.18.0
+pandas>=2.0.0
+
+# Web
+flask>=3.0.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+
+# Auth
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.1,<4.1   # توافق passlib 1.7.4
+
+# Queue
+redis>=5.0.0
+rq>=1.16.0,<2.0   # Connection API — 2.x غير متوافق
+
+# Translation
+deep-translator>=1.11.4
+deepl>=1.18.0
+transformers>=4.40.0
+torch>=2.2.0
+sentencepiece>=0.2.0
+
+# Media
+yt-dlp>=2024.1.0
+
+# Monitoring
+prometheus-client>=0.20.0
+
+# Bot
+python-telegram-bot>=21.0
+
+# Webhooks
+httpx>=0.27.0     # لـ webhooks
+
+# Quality evaluation
+evaluate>=0.4.0
+sacrebleu>=2.4.0
+bert-score>=0.3.13
+unbabel-comet>=2.2.0
+nltk>=3.8.1
+
+# A/B Testing
+scipy>=1.11.0
+
+# ASR
+faster-whisper>=1.0.0
+openai>=1.14.0
+vosk>=0.3.45
+ffmpeg-python>=0.2.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

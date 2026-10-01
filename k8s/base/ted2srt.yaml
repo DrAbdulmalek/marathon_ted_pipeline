@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ted2srt
+  namespace: marathon
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: ted2srt}
+  template:
+    metadata:
+      labels: {app: ted2srt}
+    spec:
+      containers:
+        - name: ted2srt
+          image: YOUR_REGISTRY/ted2srt-py:latest
+          ports:
+            - containerPort: 3002
+          env:
+            - name: PORT
+              value: "3002"
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 1, memory: 512Mi}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ted2srt
+  namespace: marathon
+spec:
+  selector: {app: ted2srt}
+  ports:
+    - port: 3002
+      targetPort: 3002

@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: YOUR_REGISTRY/marathon
+    newTag: v1.0.0
+  - name: YOUR_REGISTRY/ted2srt-py
+    newTag: v1.0.0
+
+patchesStrategicMerge:
+  - replicas-patch.yaml
+  - resources-patch.yaml

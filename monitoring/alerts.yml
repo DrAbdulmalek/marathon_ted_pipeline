@@ -1,0 +1,49 @@
+groups:
+  - name: marathon_alerts
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(marathon_http_requests_total{status=~"5.."}[5m]))
+          / sum(rate(marathon_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "نسبة أخطاء 5xx مرتفعة (>5%)"
+          description: "{{ $value | humanizePercentage }} من الطلبات تفشل"
+
+      - alert: QueueBacklog
+        expr: marathon_queue_size{queue_name="marathon_tasks"} > 50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "الـ queue متراكمة"
+          description: "{{ $value }} job في الانتظار"
+
+      - alert: HighProcessingTime
+        expr: |
+          histogram_quantile(0.95,
+            rate(marathon_file_process_duration_seconds_bucket[5m])) > 120
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "زمن معالجة الملفات مرتفع"
+
+      - alert: FileProcessingFailures
+        expr: rate(marathon_files_processed_total{status="failed"}[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "فشل متكرر في معالجة الملفات"
+
+      - alert: ServiceDown
+        expr: up{job="marathon_api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "خدمة API متوقفة"

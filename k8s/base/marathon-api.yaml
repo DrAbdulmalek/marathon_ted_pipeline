@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: marathon-data-pvc
+  namespace: marathon
+spec:
+  accessModes: [ReadWriteMany]
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marathon-api
+  namespace: marathon
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: marathon-api}
+  template:
+    metadata:
+      labels: {app: marathon-api}
+    spec:
+      containers:
+        - name: api
+          image: YOUR_REGISTRY/marathon:latest
+          command: ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef: {name: marathon-config}
+            - secretRef: {name: marathon-secrets}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+          resources:
+            requests: {cpu: 200m, memory: 512Mi}
+            limits: {cpu: "2", memory: 2Gi}
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 30
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: marathon-data-pvc
+        - name: config
+          configMap:
+            name: marathon-config-files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: marathon-api
+  namespace: marathon
+spec:
+  selector: {app: marathon-api}
+  ports:
+    - port: 8000
+      targetPort: 8000

@@ -1,0 +1,88 @@
+languages:
+  ar:
+    name: "العربية"
+    name_en: "Arabic"
+    rtl: true
+    models:
+      google: "ar"
+      deepl: "AR"
+      marian: "Helsinki-NLP/opus-mt-en-ar"
+      nllb: "arb_Arab"
+  fr:
+    name: "Français"
+    name_en: "French"
+    rtl: false
+    models:
+      google: "fr"
+      deepl: "FR"
+      marian: "Helsinki-NLP/opus-mt-en-fr"
+      nllb: "fra_Latn"
+  es:
+    name: "Español"
+    name_en: "Spanish"
+    rtl: false
+    models:
+      google: "es"
+      deepl: "ES"
+      marian: "Helsinki-NLP/opus-mt-en-es"
+      nllb: "spa_Latn"
+  de:
+    name: "Deutsch"
+    name_en: "German"
+    rtl: false
+    models:
+      google: "de"
+      deepl: "DE"
+      marian: "Helsinki-NLP/opus-mt-en-de"
+      nllb: "deu_Latn"
+  tr:
+    name: "Türkçe"
+    name_en: "Turkish"
+    rtl: false
+    models:
+      google: "tr"
+      deepl: "TR"
+      marian: "Helsinki-NLP/opus-mt-en-tr"
+      nllb: "tur_Latn"
+  fa:
+    name: "فارسی"
+    name_en: "Persian"
+    rtl: true
+    models:
+      google: "fa"
+      marian: "Helsinki-NLP/opus-mt-en-fa"
+      nllb: "pes_Arab"
+  ur:
+    name: "اردو"
+    name_en: "Urdu"
+    rtl: true
+    models:
+      google: "ur"
+      marian: "Helsinki-NLP/opus-mt-en-ur"
+      nllb: "urd_Arab"
+  zh:
+    name: "中文"
+    name_en: "Chinese"
+    rtl: false
+    models:
+      google: "zh-CN"
+      deepl: "ZH"
+      marian: "Helsinki-NLP/opus-mt-en-zh"
+      nllb: "zho_Hans"
+  hi:
+    name: "हिन्दी"
+    name_en: "Hindi"
+    rtl: false
+    models:
+      google: "hi"
+      marian: "Helsinki-NLP/opus-mt-en-hi"
+      nllb: "hin_Deva"
+  ru:
+    name: "Русский"
+    name_en: "Russian"
+    rtl: false
+    models:
+      google: "ru"
+      deepl: "RU"
+      marian: "Helsinki-NLP/opus-mt-en-ru"
+      nllb: "rus_Cyrl"

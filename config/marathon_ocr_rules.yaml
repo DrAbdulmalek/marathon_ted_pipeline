@@ -1,0 +1,150 @@
+# قواعد معالجة OCR — Marathon TED Pipeline
+# 18 قاعدة مُرتَّبة حسب أولوية التنفيذ
+# مفصولة إلى: تنظيف (cleanup)، استبدال (substitution)، بنية (structure)،
+# وفصل (separation) — إخراج صحيح/خاطئ منفصل لحماية بيانات التدريب من التضليل.
+version: 1
+name: marathon_ocr_rules
+
+# ---------- التنظيف العام ----------
+rules:
+  - id: R01
+    name: strip_control_chars
+    description: "حذف محارف التحكم غير المرئية ( bidi marks، zero-width )"
+    enabled: true
+    category: cleanup
+
+  - id: R02
+    name: normalize_unicode_forms
+    description: "توحيد أشكال يونيكود (NFKC) للأحرف المتطابقة بصريًا"
+    enabled: true
+    category: cleanup
+
+  - id: R03
+    name: collapse_whitespace
+    description: "دمج المسافات المتكررة والحفاظ على فواصل الأسطر"
+    enabled: true
+    category: cleanup
+
+  - id: R04
+    name: fix_line_hyphenation
+    description: "وصل الكلمات المقطوعة بشرطة في نهاية السطر"
+    enabled: true
+    category: structure
+
+  - id: R05
+    name: merge_broken_paragraphs
+    description: "دمج أسطر الفقرة الواحدة عندما لا ينتهي السطر بعلامة ترقيم"
+    enabled: true
+    category: structure
+
+  - id: R06
+    name: remove_page_numbers
+    description: "حذف أرقام الصفحات المعزولة ( أرقام وحدها في سطر )"
+    enabled: true
+    category: cleanup
+
+  - id: R07
+    name: remove_headers_footers
+    description: "حذف الترويسات والتذييلات المتكررة أعلى/أسفل الصفحات"
+    enabled: true
+    category: cleanup
+
+  - id: R08
+    name: strip_diacritics
+    description: "حذف التشكيل مع خيار الإبقاء في بيانات التعريف"
+    enabled: true
+    category: cleanup
+    params:
+      keep_in_metadata: true
+
+  - id: R09
+    name: normalize_arabic_letters
+    description: "توحيد الألف/الياء/التاء المربوطة ( أ إ آ → ا ، ى → ي ، ة → ه اختياري )"
+    enabled: true
+    category: substitution
+    params:
+      alef_variants: true
+      ya_maqsura: true
+      ta_marbuta: false
+
+  - id: R10
+    name: normalize_diacriticless_digits
+    description: "توحيد الأرقام العربية-الهندية (٠-٩) إلى (0-9) مع حفظ النسخة الأصلية"
+    enabled: true
+    category: substitution
+    params:
+      keep_original: true
+
+  - id: R11
+    name: normalize_punctuation
+    description: "توحيد علامات الترقيم ( ، ، ؛ ، ؟ ) إلى الصيغة القياسية"
+    enabled: true
+    category: substitution
+
+  - id: R12
+    name: normalize_quotes
+    description: "توحيد علامات الاقتباس المزدوجة والمفردة"
+    enabled: true
+    category: substitution
+
+  - id: R13
+    name: common_ocr_substitutions
+    description: "جدول أخطاء OCR الشائعة ( و/ؤ ، ه/ة في السياق ، لأ لإ لا )"
+    enabled: true
+    category: substitution
+    params:
+      table:
+        "ﻻ": "لا"
+        "ﻷ": "لأ"
+        "ﻹ": "لإ"
+        "ﺁ": "آ"
+
+  - id: R14
+    name: detect_visual_markers
+    description: "كشف الرموز والألوان في النص ( ⚠ ✔ ✖ 🔴 🟢 ) وعزلها كسِمات بصرية"
+    enabled: true
+    category: separation
+    params:
+      markers: ["⚠", "✔", "✖", "❌", "✅", "🔴", "🟢", "🟡", "⭐", "★", "※", "†", "‡"]
+
+  - id: R15
+    name: flag_uncertain_words
+    description: "وسم الكلمات منخفضة الثقة من OCR بعلامة [؟؟] لمراجعة بشرية"
+    enabled: true
+    category: separation
+    params:
+      min_word_length: 2
+      confidence_threshold: 0.80
+      marker: "[؟؟]"
+
+  - id: R16
+    name: separate_correct_vs_wrong
+    description: "فصل مخرجات OCR الصحيحة عن الخاطئة في ملفين — لا تدريب على نص مُضلَّل"
+    enabled: true
+    category: separation
+    params:
+      correct_ratio_threshold: 0.85   # نسبة الكلمات السليمة لقبول المقطع "صحيحًا"
+
+  - id: R17
+    name: detect_lists_and_headings
+    description: "كشف العناوين والقوائم وتحويلها لصيغة Markdown (# و -)"
+    enabled: true
+    category: structure
+    params:
+      heading_max_words: 12
+
+  - id: R18
+    name: extract_footnotes_tables
+    description: "عزل الحواشي السفلية (¹ ² أو (1)) والجداول البسيطة إلى أقسام مستقلة"
+    enabled: true
+    category: separation
+
+# ---------- الإعدادات العامة ----------
+settings:
+  language: "ara+eng"           # لغات tesseract
+  dpi: 300                      # دقة التحويل من PDF
+  min_confidence: 0.0           # حد الثقة الأدنى لقبول الصفحة
+  output:
+    correct_suffix: ""          # الملف الصحيح: <name>.md
+    wrong_suffix: ".wrong"      # الملف الخاطئ: <name>.md.wrong
+    metadata_suffix: ".meta.json"

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marathon-bot
+  namespace: marathon
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: marathon-bot}
+  template:
+    metadata:
+      labels: {app: marathon-bot}
+    spec:
+      containers:
+        - name: bot
+          image: YOUR_REGISTRY/marathon:latest
+          command: ["python", "bot.py"]
+          envFrom:
+            - configMapRef: {name: marathon-config}
+            - secretRef: {name: marathon-secrets}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: marathon-data-pvc
+        - name: config
+          configMap:
+            name: marathon-config-files

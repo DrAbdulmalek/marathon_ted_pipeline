@@ -1,0 +1,71 @@
+{
+  "title": "Marathon TED Pipeline",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "طلبات HTTP/ثانية",
+      "targets": [{
+        "expr": "sum(rate(marathon_http_requests_total[1m])) by (endpoint)"
+      }],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "type": "graph",
+      "title": "متوسط زمن الطلب (P95)",
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(marathon_http_duration_seconds_bucket[5m]))"
+      }],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "حجم Queue",
+      "targets": [{"expr": "marathon_queue_size"}],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "ملفات نجحت (24h)",
+      "targets": [{
+        "expr": "increase(marathon_files_processed_total{status=\"success\"}[24h])"
+      }],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "ملفات فشلت (24h)",
+      "targets": [{
+        "expr": "increase(marathon_files_processed_total{status=\"failed\"}[24h])"
+      }],
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "نسبة النجاح",
+      "targets": [{
+        "expr": "sum(rate(marathon_files_processed_total{status=\"success\"}[1h])) / sum(rate(marathon_files_processed_total[1h]))"
+      }],
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8}
+    },
+    {
+      "type": "graph",
+      "title": "الرموز البصرية المكتشفة",
+      "targets": [{
+        "expr": "sum(rate(marathon_visual_markers_total[5m])) by (kind)"
+      }],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "graph",
+      "title": "الترجمات حسب المحرك",
+      "targets": [{
+        "expr": "sum(rate(marathon_translations_total[5m])) by (engine)"
+      }],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    }
+  ],
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": {"from": "now-6h", "to": "now"}
+}

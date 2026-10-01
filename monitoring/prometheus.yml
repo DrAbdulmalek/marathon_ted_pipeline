@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: marathon
+
+scrape_configs:
+  - job_name: "marathon_api"
+    static_configs:
+      - targets: ["marathon_api:8000"]
+    metrics_path: /metrics
+
+  - job_name: "marathon_worker"
+    static_configs:
+      - targets: ["marathon_worker:9100"]  # اختياري

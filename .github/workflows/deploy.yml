@@ -1,0 +1,73 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "البيئة"
+        required: true
+        default: "production"
+        type: choice
+        options: [staging, production]
+  push:
+    tags: ["v*"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -e
+            cd /opt/marathon
+
+            echo "📥 جلب آخر التحديثات..."
+            git fetch --all
+            git reset --hard origin/main
+
+            echo "🐳 سحب الصورة الجديدة..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            docker pull ghcr.io/${{ github.repository }}:latest
+
+            echo "🔄 إعادة التشغيل..."
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            echo "🧹 تنظيف..."
+            docker image prune -f
+
+            echo "✅ التحقق..."
+            sleep 10
+            docker compose ps
+          EOF
+
+      - name: Verify deployment
+        run: |
+          sleep 20
+          curl -f https://${{ secrets.DOMAIN }}/api/health || exit 1
+
+      - name: Notify on failure
+        if: failure()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_ALERT_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            ❌ فشل النشر!
+            Commit: ${{ github.sha }}
+            Repo: ${{ github.repository }}

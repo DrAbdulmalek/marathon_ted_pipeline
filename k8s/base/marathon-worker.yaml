@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marathon-worker
+  namespace: marathon
+spec:
+  replicas: 4
+  selector:
+    matchLabels: {app: marathon-worker}
+  template:
+    metadata:
+      labels: {app: marathon-worker}
+    spec:
+      containers:
+        - name: worker
+          image: YOUR_REGISTRY/marathon:latest
+          command: ["python", "-m", "src.queue_worker"]
+          envFrom:
+            - configMapRef: {name: marathon-config}
+            - secretRef: {name: marathon-secrets}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+          resources:
+            requests: {cpu: 500m, memory: 1Gi}
+            limits: {cpu: "2", memory: 4Gi}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: marathon-data-pvc
+        - name: config
+          configMap:
+            name: marathon-config-files

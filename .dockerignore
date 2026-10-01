@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+venv
+__pycache__
+*.pyc
+.env
+*.session
+*.session-journal
+data/
+docs/
+tests/
+examples/
+k8s/
+finetune/models/
+.pytest_cache

@@ -1,0 +1,64 @@
+# config/config.example.yaml — انسخ إلى config.yaml وعدّل
+# Marathon TED Pipeline — الإعدادات الرئيسية
+
+# ---------- التخزين ----------
+storage:
+  download_dir: "data/downloads"
+  log_dir: "data/logs"
+  correct_dir: "data/downloads/correct"    # مخرجات OCR الصحيحة
+  wrong_dir: "data/downloads/wrong"        # مخرجات OCR الخاطئة (مفصولة)
+
+# ---------- OCR ----------
+ocr:
+  rules_file: "config/marathon_ocr_rules.yaml"
+  dpi: 300
+  language: "ara+eng"
+
+# ---------- تيليجرام ----------
+telegram:
+  source_channel: "@source_channel_username"   # قناة المراقبة
+  target_channel: "@target_channel_username"   # قناة النشر
+  session: "marathon_session"
+  # api_id و api_hash من env: TELEGRAM_API_ID / TELEGRAM_API_HASH
+
+# ---------- الترجمة ----------
+translation:
+  enabled: true
+  engine: "google"        # google | deepl | hf | finetuned
+  options:
+    model_dir: "finetune/models/ted_ar_v1"
+
+# ---------- اللغات ----------
+languages:
+  target: "ar"
+  config_file: "config/languages.yaml"
+
+# ---------- CMS ----------
+cms:
+  enabled: true
+  adapters:
+    - type: "wordpress"
+      site_url: "https://myblog.com"
+      username: "admin"
+      app_password: "xxxx xxxx xxxx xxxx"
+      default_status: "draft"
+    - type: "notion"
+      api_token: "secret_xxx"
+      database_id: "xxxxxxxxxxxxxxxx"
+    - type: "webhook"
+      url: "https://my-cms.example.com/api/publish"
+      headers:
+        X-API-Key: "xxx"
+
+# ---------- ASR ----------
+asr:
+  default_engine: "whisper-local"     # whisper-local|whisper-api|vosk
+  whisper:
+    model_size: "base"                # tiny|base|small|medium|large-v3
+    device: "auto"
+    compute_type: "int8"
+  vosk:
+    model_path: "/models/vosk-en"
+  languages:
+    auto_detect: true
+    supported: ["en", "ar", "fr", "es", "de", "tr", "ru", "zh"]

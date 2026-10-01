@@ -1,0 +1,33 @@
+name: Scheduled Tasks
+
+on:
+  schedule:
+    - cron: "0 3 * * *"    # نسخ احتياطي يوميًا 3 صباحًا
+    - cron: "0 6 * * 0"    # تحديث أسبوعي الأحد 6 صباحًا
+
+jobs:
+  nightly-backup:
+    if: github.event.schedule == '0 3 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger backup on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            /opt/marathon/deploy/backup.sh
+
+  weekly-update:
+    if: github.event.schedule == '0 6 * * 0'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger update on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            /opt/marathon/deploy/update.sh

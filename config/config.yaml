@@ -1,0 +1,54 @@
+# config/config.yaml — Marathon TED Pipeline (نشط)
+storage:
+  download_dir: "data/downloads"
+  log_dir: "data/logs"
+  correct_dir: "data/downloads/correct"
+  wrong_dir: "data/downloads/wrong"
+
+ocr:
+  rules_file: "config/marathon_ocr_rules.yaml"
+  dpi: 300
+  language: "ara+eng"
+
+telegram:
+  source_channel: "@source_channel_username"
+  target_channel: "@target_channel_username"
+  session: "marathon_session"
+
+translation:
+  enabled: true
+  engine: "google"
+  options:
+    model_dir: "finetune/models/ted_ar_v1"
+
+languages:
+  target: "ar"
+  config_file: "config/languages.yaml"
+
+cms:
+  enabled: true
+  adapters:
+    - type: "wordpress"
+      site_url: "https://myblog.com"
+      username: "admin"
+      app_password: "xxxx xxxx xxxx xxxx"
+      default_status: "draft"
+    - type: "notion"
+      api_token: "secret_xxx"
+      database_id: "xxxxxxxxxxxxxxxx"
+    - type: "webhook"
+      url: "https://my-cms.example.com/api/publish"
+      headers:
+        X-API-Key: "xxx"
+
+asr:
+  default_engine: "whisper-local"
+  whisper:
+    model_size: "base"
+    device: "auto"
+    compute_type: "int8"
+  vosk:
+    model_path: "/models/vosk-en"
+  languages:
+    auto_detect: true
+    supported: ["en", "ar", "fr", "es", "de", "tr", "ru", "zh"]

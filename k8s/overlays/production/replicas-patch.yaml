@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marathon-api
+  namespace: marathon
+spec:
+  replicas: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marathon-worker
+  namespace: marathon
+spec:
+  replicas: 8

@@ -1,0 +1,61 @@
+name: Fine-tune Model
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_model:
+        description: "النموذج الأساسي"
+        default: "Helsinki-NLP/opus-mt-en-ar"
+        type: string
+      epochs:
+        description: "عدد epochs"
+        default: "3"
+        type: string
+
+jobs:
+  finetune:
+    runs-on: [self-hosted, gpu]   # يحتاج runner مع GPU
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          pip install -r finetune/requirements.txt
+
+      - name: Prepare data
+        run: python finetune/prepare_data.py
+
+      - name: Train
+        env:
+          BASE_MODEL: ${{ github.event.inputs.base_model }}
+        run: |
+          python finetune/train.py
+
+      - name: Evaluate
+        run: python finetune/evaluate.py
+
+      - name: Upload model
+        uses: actions/upload-artifact@v4
+        with:
+          name: ted-ar-model
+          path: finetune/models/ted_ar_v1/
+          retention-days: 30
+
+      - name: Push to HF Hub
+        if: github.event.inputs.environment == 'production'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -c "
+          from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+          m = AutoModelForSeq2SeqLM.from_pretrained('finetune/models/ted_ar_v1')
+          t = AutoTokenizer.from_pretrained('finetune/models/ted_ar_v1')
+          m.push_to_hub('your-username/ted-ar-v1')
+          t.push_to_hub('your-username/ted-ar-v1')
+          "
