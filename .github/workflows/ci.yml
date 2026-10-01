@@ -59,7 +59,7 @@ jobs:
         run: ruff check src/ tests/
 
       - name: Type check with mypy
-        run: mypy src/ --ignore-missing-imports --no-strict-optional || true
+        run: mypy src/ --ignore-missing-imports --no-strict-optional
 
       - name: Run tests
         env:
