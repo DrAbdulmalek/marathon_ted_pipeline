@@ -55,7 +55,7 @@ evaluate>=0.4.0
 sacrebleu>=2.4.0
 bert-score>=0.3.13
 unbabel-comet>=2.2.0
-nltk>=3.8.1
+nltk>=3.10.3
 
 # A/B Testing
 scipy>=1.11.0
