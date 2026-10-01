@@ -143,13 +143,27 @@ def test_r15_flags_uncertain_words(proc):
 
 
 # ---------- R16 ----------
-def test_r16_separates_correct_vs_wrong(proc):
-    good = proc.process_text("هذا نص عربي سليم تمامًا بلا رموز غريبة.")
-    assert good["classification"] if False else True
-    assert good["correct"] != "" and good["wrong"] == ""
-    bad = proc.process_text("XYZ#$% @@@ ﷼﷼﷼ *** ???")
-    if bad["ratio"] < 0.85:
-        assert bad["wrong"] != "" and bad["correct"] == ""
+def test_r16_requires_visual_evidence(proc):
+    clean = proc.process_text("هذا نص عربي سليم تمامًا بلا رموز غريبة.")
+    assert clean["classification"] == "uncertain"
+    assert clean["correct"] == ""
+    assert clean["wrong"] == clean["markdown"]
+
+    correct = proc.process_text(
+        "هذه ترجمة صحيحة",
+        visual_evidence={"status": "correct", "markers": ["check"], "confidence": "high"},
+    )
+    assert correct["classification"] == "correct"
+    assert correct["correct"] == correct["markdown"]
+    assert correct["wrong"] == ""
+
+    wrong = proc.process_text(
+        "هذه ترجمة خاطئة",
+        visual_evidence={"status": "incorrect", "markers": ["x"], "confidence": "high"},
+    )
+    assert wrong["classification"] == "wrong"
+    assert wrong["wrong"] == wrong["markdown"]
+    assert wrong["correct"] == ""
 
 
 # ---------- R17 ----------
@@ -187,3 +201,20 @@ def test_save_outputs_creates_correct_and_wrong_files(proc, tmp_path):
     if result["correct"]:
         assert paths["markdown"].exists()
     assert paths["wrong"] is None
+
+
+def test_visual_evidence_classifier_is_uncertain_without_signal(proc):
+    result = proc.classify_visual_evidence(markers=[], colors=[])
+    assert result["status"] == "uncertain"
+    assert result["confidence"] == "low"
+
+
+def test_visual_evidence_classifier_uses_check_and_x(proc):
+    assert proc.classify_visual_evidence(markers=["check"])["status"] == "correct"
+    assert proc.classify_visual_evidence(markers=["x"])["status"] == "incorrect"
+
+
+def test_visual_color_semantics_are_explicit(proc):
+    assert proc.classify_visual_evidence(colors=["green"])["status"] == "correct"
+    assert proc.classify_visual_evidence(colors=["red"])["status"] == "incorrect"
+    assert proc.classify_visual_evidence(colors=[])["status"] == "uncertain"

@@ -247,22 +247,38 @@ class OCRProcessor:
             return word
         return re.sub(r"\S+", _flag, text)
 
-    def r16_separate_correct_vs_wrong(self, text: str) -> dict:
-        """R16: فصل المخرجات الصحيحة عن الخاطئة (حماية بيانات التدريب)."""
-        params = self.rules["R16"].get("params", {})
-        threshold = params.get("correct_ratio_threshold", 0.85)
-        words = text.split()
-        if not words:
-            return {"correct": "", "wrong": text, "ratio": 0.0}
-        # كلمة "سليمة" = حروف عربية/لاتينية/أرقام/ترقيم قياسي فقط
-        ok_re = re.compile(r"^[\u0621-\u064aa-zA-Z0-9.,;:!?()\[\]\"'«»،؛؟-]+$")
-        good = sum(1 for w in words if ok_re.match(w))
-        ratio = good / len(words)
+    def classify_visual_evidence(self, markers=None, colors=None, context=None) -> dict:
+        """Classify only when the visual evidence itself supports correctness."""
+        markers = [str(x).lower() for x in (markers or [])]
+        colors = [str(x).lower() for x in (colors or [])]
+        context = context or {}
+        status = "uncertain"
+        if any(x in markers for x in ("✓", "✔", "check", "correct")):
+            status = "correct"
+        if any(x in markers for x in ("✗", "✘", "x", "cross", "incorrect")):
+            status = "incorrect"
+        if "green" in colors and "red" not in colors:
+            status = "correct"
+        elif "red" in colors and "green" not in colors:
+            status = "incorrect"
         return {
-            "correct": text if ratio >= threshold else "",
-            "wrong": "" if ratio >= threshold else text,
-            "ratio": round(ratio, 4),
+            "status": status,
+            "markers": markers,
+            "colors": colors,
+            "context": context,
+            "confidence": "high" if status != "uncertain" else "low",
         }
+
+    def r16_separate_correct_vs_wrong(self, text: str, visual_evidence: Optional[dict] = None) -> dict:
+        """R16: يفصل أمثلة الخطأ عن النص الموثق بصريًا؛ لا يحوّل نظافة OCR إلى حقيقة."""
+        visual_evidence = visual_evidence or {}
+        status = visual_evidence.get("status", "uncertain")
+        ratio = float(visual_evidence.get("word_ratio", 0.0))
+        if status == "correct":
+            return {"correct": text, "wrong": "", "ratio": round(ratio, 4), "classification": "correct", "classification_basis": "visual_evidence"}
+        if status == "incorrect":
+            return {"correct": "", "wrong": text, "ratio": round(ratio, 4), "classification": "wrong", "classification_basis": "visual_evidence"}
+        return {"correct": "", "wrong": text, "ratio": round(ratio, 4), "classification": "uncertain", "classification_basis": "insufficient_evidence"}
 
     def r17_detect_lists_and_headings(self, text: str) -> str:
         """R17: كشف العناوين والقوائم وتحويلها لـ Markdown."""
@@ -309,7 +325,7 @@ class OCRProcessor:
 
     # ---------- خط الأنابيب الكامل ----------
     def process_text(
-        self, raw_text: str, confidence: float = 1.0
+        self, raw_text: str, confidence: float = 1.0, visual_evidence: Optional[dict] = None
     ) -> dict:
         """تنفيذ القواعد الـ 18 بالترتيب وإرجاع النص النظيف + البيانات الوصفية.
 
@@ -367,7 +383,7 @@ class OCRProcessor:
         text = self.r03_collapse_whitespace(text)
 
         # R16: الفصل صحيح/خاطئ
-        sep = self.r16_separate_correct_vs_wrong(text)
+        sep = self.r16_separate_correct_vs_wrong(text, visual_evidence=visual_evidence)
 
         if footnotes:
             text = text + "\n\n---\n\n## الحواشي\n\n" + footnotes
@@ -380,7 +396,9 @@ class OCRProcessor:
             "footnotes_count": self.stats.footnotes,
             "page_numbers_removed": self.stats.pages_dropped,
             "word_ratio": sep["ratio"],
-            "classification": "correct" if sep["correct"] else "wrong",
+            "classification": sep.get("classification", "uncertain"),
+            "classification_basis": sep.get("classification_basis", "insufficient_evidence"),
+            "visual_evidence": visual_evidence or {"status": "uncertain", "confidence": "low"},
             "had_diacritics": getattr(self.stats, "diacritics_seen", False),
             "had_arabic_digits": getattr(self.stats, "original_digits", False),
         }
