@@ -24,7 +24,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ---------- الإعدادات ----------
-CONFIG_PATH = os.getenv("CONFIG_PATH", "config/config.yaml")
+# المسار مستقل عن CWD: الافتراضي مشتق من موقع الوحدة، والعقد البيئي القائم
+# CONFIG_PATH محفوظ كما هو (superset — لا كسر عقود نشر قائمة)
+CONFIG_PATH = Path(
+    os.getenv("CONFIG_PATH")
+    or Path(__file__).resolve().parent.parent / "config" / "config.yaml"
+)
 with open(CONFIG_PATH, encoding="utf-8") as f:
     CONFIG = yaml.safe_load(f)
 
