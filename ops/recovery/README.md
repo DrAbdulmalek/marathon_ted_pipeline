@@ -54,3 +54,40 @@ python3 ops/recovery/telegram_phone_upload.py
    جديداً بدلاً منه.
 6. ملفات الواجهة (`tg_phone.txt`, `tg_code.txt`, `tg_password.txt`) تُمسح
    محتواياً عند بدء الدخول وتُدار عبر الملفات — لا تمرر الرمز عبر argv.
+
+## الشريحة الميتة: استرجاع عبر Wayback Machine
+
+بعد حملة 2026-10-03 الكاملة: **6,430/7,523 حية (85.5%)** والمتبقي
+**1,093 slug ميتة في الفضاءين معاً** — قائمتها الرسمية:
+`data/dead_slugs.json` (مُلتزمة في المستودع، مُستخرجة من حالة الحملة مباشرة،
+صفر منها يملك VTT على القرص — مدققة).
+
+⚠️ `web.archive.org` و`archive.org` **محجوبان في بيئة التنفيذ السحابية**
+(TCP 443 timeout على كل المسارات). هذه الخطوة تعمل فقط على جهاز يصل إلى IA.
+
+```bash
+# على جهاز يملك وصول Internet Archive:
+git clone https://github.com/DrAbdulmalek/marathon_ted_pipeline.git
+cd marathon_ted_pipeline && git checkout migrate/visual-evidence-charter
+
+# 0) اختبار سريع لـ CDX قبل أي حملة:
+curl -s "http://web.archive.org/cdx/search/cdx?url=ted.com/talks/sir_ken_robinson_do_schools_kill_creativity&output=json&limit=5"
+
+# 1) حملة الاسترجاع (CDX صارم في المعدل — لا تتجاوز workers=3):
+python3 collectors/14_wayback_backfill.py --input data/dead_slugs.json \
+    --workers 2 --fetch-delay 0.6
+#    المخرجات: data/talk_id_map.json (حالة لكل slug، قابلة للاستئناف)
+#              data/talks_wayback.json (المعرفات المُثبتة حيّة فقط)
+
+# 2) حملة التنزيل بالمعرفات المسترجعة:
+python3 collectors/02_download_subtitles.py --talks-file data/talks_wayback.json \
+    --langs en,ar --workers 5 --delay 0.5
+
+# 3) البناء والرفع للقناة (كما في الأعلى):
+python3 ops/recovery/build_and_upload_corpus.py --now
+```
+
+معدل النجاح المرجعي: لا يوجد رقم مُثبت بعد — اقترح ديبسيك اختبار 15 دقيقة
+بالعينة (`--limit 20 --workers 1`)؛ اعتمد الحملة الكاملة فقط إذا كانت
+النسبة ≥ 40% verified. المعرف لا يُقبل إلا بعد إثبات حيويته على hls اليوم
+(الخطوة الذهبية `verify_hls`).
