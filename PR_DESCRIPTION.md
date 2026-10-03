@@ -2,6 +2,9 @@
 
 > **ملخص عربي**: ترحيل قواعد OCR من v1 التنظيفي إلى ميثاق الدليل البصري v2، مع حفظ عقد v1 (مبدأ superset)، وإصلاح استقلالية المسارات عن دليل التشغيل (CWD)، ودعم اتجاه الترجمة ar↔en، وتثبيت أول دليل بايتي حي من TED كـ fixture دائم. 6 commits على `main` (7e90498)، لا يكسر أي عقد قائم.
 
+- `ae51a1c` FEAT(collectors): اكتشاف فضاء slug + تعداد كامل — التغطية 22.2% ← 85.5%
+- `7c160ab` MERGE: دمج مراجعة Qwen (audit/qwen-review-2026-10-03) — 143 اختبارًا أخضر، ruff نظيف
+
 ## What this PR does
 
 Six commits migrating the OCR subsystem to the Visual Evidence Charter (v2)
