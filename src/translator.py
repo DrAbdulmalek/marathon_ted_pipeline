@@ -104,28 +104,49 @@ class DeepLTranslator(BaseTranslator):
         return TranslationResult(out, self.engine, src, tgt)
 
 
+# نماذج HF الافتراضية حسب الاتجاه (Helsinki-NLP/opus-mt-ar-en متاح فعلًا على HF)
+_DEFAULT_HF_MODELS = {
+    ("en", "ar"): "Helsinki-NLP/opus-mt-en-ar",
+    ("ar", "en"): "Helsinki-NLP/opus-mt-ar-en",
+}
+
+
 class HFTranslator(BaseTranslator):
     """المحرك الثالث — نماذج MarianMT/NLLB محليًا (تحميل كسول)."""
 
     def __init__(self, model_name: str | None = None, **kwargs):
         self.engine = "hf"
-        self.model_name = model_name or "Helsinki-NLP/opus-mt-en-ar"
-        self._pipeline = None
+        self._explicit_model = model_name
+        self.model_name = model_name or _DEFAULT_HF_MODELS[("en", "ar")]
+        self._pipelines: dict = {}
 
-    def _load(self):
-        if self._pipeline is None:
+    def _model_name_for(self, src: str, tgt: str) -> str:
+        """اختيار النموذج حسب الاتجاه — دالة نقية قابلة للاختبار بلا تحميل."""
+        return self._explicit_model or _DEFAULT_HF_MODELS.get(
+            (src, tgt), _DEFAULT_HF_MODELS[("en", "ar")]
+        )
+
+    def _pipeline_for(self, src: str, tgt: str):
+        name = self._model_name_for(src, tgt)
+        if name not in self._pipelines:
             from transformers import pipeline
 
-            logger.info("تحميل نموذج HF: %s", self.model_name)
-            self._pipeline = pipeline(
-                "translation", model=self.model_name, device=-1
+            logger.info("تحميل نموذج HF: %s", name)
+            self._pipelines[name] = pipeline(
+                "translation", model=name, device=-1
             )
-        return self._pipeline
+        return self._pipelines[name]
+
+    def _load(self):
+        """توافق خلفي: أول خط أنابيب محمّل (يفضّل الاتجاه الافتراضي)."""
+        if not self._pipelines:
+            return self._pipeline_for("en", "ar")
+        return next(iter(self._pipelines.values()))
 
     def translate(self, text: str, src: str = "auto", tgt: str = "ar") -> TranslationResult:
         if not text.strip():
             return TranslationResult("", self.engine, src, tgt)
-        pipe = self._load()
+        pipe = self._pipeline_for(src, tgt)
         # تقسيم لقطات قصيرة (حد النماذج 512 توكن)
         chunks = [c for c in re.split(r"(?<=[.!؟?])\s+", text) if c.strip()]
         outs = []
@@ -137,14 +158,21 @@ class HFTranslator(BaseTranslator):
 
 # إضافة محرك رابع: fine-tuned
 class FinetunedTranslator(BaseTranslator):
-    def __init__(self, model_dir: str = "finetune/models/ted_ar_v1"):
+    """نموذج مُدرَّب محليًا على TED — اتجاه واحد يُحدد عند التهيئة.
+
+    ted_ar_v1 = en→ar؛ نموذج مستقبلي ar→en يُحمّل بتمرير model_dir
+    و(src, tgt) الخاصين به، واسم المحرك يعكس الاتجاه لتتبع صادق.
+    """
+
+    def __init__(self, model_dir: str = "finetune/models/ted_ar_v1",
+                 src: str = "en", tgt: str = "ar"):
         import torch
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_dir).to(self.device)
         self.model.eval()
-        self.engine = "finetuned-ted"
+        self.engine = f"finetuned-{src}-{tgt}"
 
     def translate(
         self, text: str, src: str = "en", tgt: str = "ar"
@@ -187,7 +215,7 @@ class Translator:
         result = self.impl.translate(text, src=src, tgt=tgt)
         if isinstance(result, TranslationResult):
             return result
-        # FinetunedTranslator يعيد str خامًا (كما في التصميم)
+        # حزام أمان لأي محرك خارجي يعيد str خامًا
         return TranslationResult(str(result), self.engine, src, tgt)
 
 

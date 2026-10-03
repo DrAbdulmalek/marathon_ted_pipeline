@@ -124,7 +124,7 @@ def test_languages_endpoint(client):
     r = client.get("/languages")
     assert r.status_code == 200
     langs = r.json()["languages"]
-    assert len(langs) == 10
+    assert len(langs) == 11  # en أُضيفت إلى languages.yaml
 
 
 def test_webhook_crud(client):

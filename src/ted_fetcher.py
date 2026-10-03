@@ -182,17 +182,25 @@ class TedFetcher:
 
     # ---------- الواجهة العامة ----------
     def fetch(
-        self, ted_url: str, target_lang: str = None
+        self, ted_url: str, target_lang: str = None,
+        source_lang: str = "en",
     ) -> Optional[TedTranscript]:
-        """جلب الترجمة للغة محددة — يجرب الأنماط الثلاثة بالترتيب."""
+        """جلب الترجمة للغة محددة — يجرب الأنماط الثلاثة بالترتيب.
+
+        source_lang قابل للضبط: مرّر "ar" لجلب النسخة العربية كمصدر —
+        النمط الرسمي يدعم أي لغة متاحة على TED عبر hls.ted.com.
+        (ted2srt/Apify يبقيان المصدر الأصلي للمحادثة كما هي خدماتهما.)
+        """
         target_lang = target_lang or self.config.get(
             "languages", {}
         ).get("target", "ar")
         slug = self.extract_slug(ted_url)
 
-        logger.info("جلب المحادثة: %s (هدف: %s)", slug, target_lang)
+        logger.info("جلب المحادثة: %s (مصدر: %s هدف: %s)",
+                    slug, source_lang, target_lang)
         for fetcher, name in (
-            (lambda: self._fetch_via_ted_api(slug, "en", target_lang), "ted-api"),
+            (lambda: self._fetch_via_ted_api(
+                slug, source_lang, target_lang), "ted-api"),
             (lambda: self._fetch_via_ted2srt(ted_url, target_lang), "ted2srt"),
             (lambda: self._fetch_via_apify(ted_url, target_lang), "apify"),
         ):

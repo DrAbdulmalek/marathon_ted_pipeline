@@ -77,8 +77,9 @@ def test_languages_yaml_has_10_languages():
     with open(ROOT / "config/languages.yaml", encoding="utf-8") as f:
         data = yaml.safe_load(f)
     langs = data["languages"]
-    assert len(langs) == 10
+    assert len(langs) == 11  # en أُضيفت — مصدر الإنجليزية الأساسي في النظام
     assert "ar" in langs
+    assert "en" in langs
     for code, info in langs.items():
         assert "name" in info and "rtl" in info and "models" in info
 

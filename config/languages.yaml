@@ -1,4 +1,13 @@
 languages:
+  en:
+    name: "English"
+    name_en: "English"
+    rtl: false
+    models:
+      google: "en"
+      deepl: "EN"
+      marian: null   # الإنجليزية مصدر هنا — نموذج الاتجاه المعاكس (ar-en) يُختار في HFTranslator حسب (src,tgt)
+      nllb: "eng_Latn"
   ar:
     name: "العربية"
     name_en: "Arabic"
