@@ -1,5 +1,6 @@
 """إدارة اللغات المتعددة."""
 import logging
+import os
 from pathlib import Path
 from typing import Optional, Dict, List
 
@@ -7,7 +8,12 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-CONFIG_PATH = Path("config/languages.yaml")
+# المسار مستقل عن دليل العمل (CWD): الافتراضي يُشتق من موقع ملف الوحدة نفسها
+# لا من دليل التشغيل — يعمل من أي مكان. للتجاوز عند النشر: LANGUAGES_FILE=/path/to/languages.yaml
+CONFIG_PATH = Path(
+    os.getenv("LANGUAGES_FILE")
+    or Path(__file__).resolve().parent.parent / "config" / "languages.yaml"
+)
 
 
 class LanguageRegistry:

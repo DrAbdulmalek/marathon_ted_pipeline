@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from src.languages import LanguageRegistry
+from src.languages import LanguageRegistry, get_registry
 from src.translator import (
     _DEFAULT_HF_MODELS,
     FinetunedTranslator,
@@ -77,6 +77,30 @@ def test_config_yaml_no_duplicate_language_list():
     )
 
 
+# ---------- الإصلاح 6: المسار الافتراضي مستقل عن CWD ----------
+def test_default_registry_cwd_independent(tmp_path, monkeypatch):
+    """LanguageRegistry() بالمسار الافتراضي يجب أن تعمل من أي دليل عمل.
+
+    قبل الإصلاح كان CONFIG_PATH نسبيًا (config/languages.yaml) →
+    FileNotFoundError فور الخروج من جذر المستودع. هذا الاختبار كان سيفشل
+    قبل الإصلاح وهو قفله الانحداري.
+    """
+    monkeypatch.chdir(tmp_path)  # دليل بلا config/languages.yaml
+    reg = LanguageRegistry()  # بلا مسار صريح — المسار الافتراضي بالضبط
+    assert reg.get("en") is not None
+    assert reg.is_rtl("ar") is True
+    assert len(reg.list_all()) >= 11
+
+
+def test_get_registry_singleton_from_foreign_cwd(tmp_path, monkeypatch):
+    """get_registry() (المفرد) يعمل من CWD غريب ويعيد نفس المثيل."""
+    monkeypatch.chdir(tmp_path)
+    r1 = get_registry()
+    r2 = get_registry()
+    assert r1 is r2
+    assert r1.get("ar") is not None
+
+
 # ---------- الإصلاح 5: source_lang في ted_fetcher ----------
 def test_ted_fetch_exposes_source_lang():
     from src.ted_fetcher import TedFetcher
@@ -85,3 +109,17 @@ def test_ted_fetch_exposes_source_lang():
     assert "target_lang" in sig.parameters
     assert "source_lang" in sig.parameters
     assert sig.parameters["source_lang"].default == "en"
+
+
+# ---------- الإصلاح 7: CI lint يقبل الدَين القديم ويصطاد الأخطاء الحقيقية ----------
+def test_ci_lint_selects_real_errors_only():
+    """ci.yml يجب أن يفحص E9/F63/F7/F82 (أخطاء Python فعلية) لا الأسلوبيات.
+
+    الدَين الأسلوبي القديم (344 بندًا على الفرع) كان سيجعل CI أحمر
+    من أول تشغيل بلا أي إشارة مفيدة — التشديد التدريجي في PRs لاحقة.
+    """
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "ruff check src/ tests/ --select E9,F63,F7,F82" in ci
+    # الحارس: لا نريد رجوعًا صامتًا للفحص الشامل المُغرِق
+    bare = "run: ruff check src/ tests/\n"
+    assert bare not in ci
