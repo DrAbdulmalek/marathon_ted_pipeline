@@ -143,6 +143,23 @@ class OCRProcessor:
                     "قواعد التنظيف (v1) حُمّلت من %s — %d قاعدة",
                     self.normalization_file, len(self.rules),
                 )
+                # ميثاق v2 → R14: مزامنة الرموز الحرفية الغامضة فقط.
+                # E2E الحقيقي (PDF+tesseract) كشف أن R14 كان يقرأ قائمة v1
+                # القديمة (بلا ✓✗✘☑) فتصبح عملية process_text عمياء للرموز
+                # الجوهرية. الاتحاد لا الاستبدال: رموز v1 التراثية (⚠ ★ †…)
+                # تبقى مكتشفة كما كانت، والميثاق يضاف إليها. X/x تُستبعد
+                # عمدًا: استبدالها الأعمى يفسد الكلمات (example→e[x]ample)
+                # والمبدأ 6 يوجب فحص سياق لها لا عزلًا — تُدار عبر
+                # apply_visual_rules بتحذير X_REQUIRES_CONTEXT_CHECK.
+                r14 = self.rules.setdefault(
+                    "R14", {"id": "R14", "name": "detect_visual_markers",
+                            "enabled": True, "params": {}})
+                existing = r14.setdefault("params", {}).get("markers") or []
+                r14["params"]["markers"] = existing + [
+                    m for m in (self.visual_markers_cfg["correct"]
+                                + self.visual_markers_cfg["incorrect"])
+                    if m not in ("X", "x") and m not in existing
+                ]
 
         self._build_visual_markers_index()
         self.stats = OCRStats()
