@@ -51,4 +51,5 @@ asr:
     model_path: "/models/vosk-en"
   languages:
     auto_detect: true
-    supported: ["en", "ar", "fr", "es", "de", "tr", "ru", "zh"]
+    # supported: حُذفت — كانت قائمة ميتة (لا قارئ لها) وتضاربت مع
+    # المصدر الوحيد للغات: config/languages.yaml (11 لغة)

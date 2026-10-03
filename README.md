@@ -138,8 +138,10 @@ marathon_ted_pipeline/
 
 ## 📚 التوثيق
 
+- **قواعد العمل الرسمية (حاكم):** docs/RULES.md — ميثاق OCR (1–18) + القواعد الميدانية المكتسبة من التنفيذ
 - **دليل المستخدم:** docs/USER_MANUAL.md (PDF: `bash docs/build.sh`)
 - **دليل النشر:** docs/DEPLOYMENT_GUIDE.md
 - **المخطط المعماري:** docs/ARCHITECTURE.md
 - **عقد SLA:** docs/SLA_TEMPLATE.md
 - **خطة التسعير:** docs/PRICING.md
+- **الاستعادة بعد إعادة ضبط البيئة:** ops/recovery/README.md
