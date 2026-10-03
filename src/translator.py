@@ -12,7 +12,6 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +76,7 @@ class GoogleTranslator(BaseTranslator):
 class DeepLTranslator(BaseTranslator):
     """المحرك الثاني — DeepL API (يتطلب DEEPL_API_KEY)."""
 
-    def __init__(self, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, api_key: str | None = None, **kwargs):
         self.engine = "deepl"
         self.api_key = api_key or os.getenv("DEEPL_API_KEY", "")
         if not self.api_key:
@@ -108,7 +107,7 @@ class DeepLTranslator(BaseTranslator):
 class HFTranslator(BaseTranslator):
     """المحرك الثالث — نماذج MarianMT/NLLB محليًا (تحميل كسول)."""
 
-    def __init__(self, model_name: Optional[str] = None, **kwargs):
+    def __init__(self, model_name: str | None = None, **kwargs):
         self.engine = "hf"
         self.model_name = model_name or "Helsinki-NLP/opus-mt-en-ar"
         self._pipeline = None
@@ -139,24 +138,28 @@ class HFTranslator(BaseTranslator):
 # إضافة محرك رابع: fine-tuned
 class FinetunedTranslator(BaseTranslator):
     def __init__(self, model_dir: str = "finetune/models/ted_ar_v1"):
-        from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
         import torch
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_dir).to(self.device)
         self.model.eval()
         self.engine = "finetuned-ted"
 
-    def translate(self, text: str, src: str = "en", tgt: str = "ar") -> str:
+    def translate(
+        self, text: str, src: str = "en", tgt: str = "ar"
+    ) -> TranslationResult:
+        """واجهة موحّدة مع باقي المحركات: تُرجع TranslationResult لا str."""
         import torch
         if not text.strip():
-            return ""
+            return TranslationResult("", self.engine, src, tgt)
         inputs = self.tokenizer(
             text, return_tensors="pt", truncation=True, max_length=256,
         ).to(self.device)
         with torch.no_grad():
             out = self.model.generate(**inputs, max_length=256)
-        return self.tokenizer.decode(out[0], skip_special_tokens=True)
+        decoded = self.tokenizer.decode(out[0], skip_special_tokens=True)
+        return TranslationResult(decoded, self.engine, src, tgt)
 
 
 _ENGINES = {
@@ -189,7 +192,7 @@ class Translator:
 
 
 # إضافة في Translator
-from .languages import get_registry  # noqa: E402
+from .languages import get_registry
 
 
 class MultiLangTranslator:

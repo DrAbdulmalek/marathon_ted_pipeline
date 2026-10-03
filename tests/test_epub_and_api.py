@@ -1,6 +1,5 @@
 # tests/test_epub_and_api.py
 """اختبارات معالج EPUB + REST API (TestClient بمصادقة)."""
-from pathlib import Path
 
 import pytest
 
@@ -28,7 +27,7 @@ def test_epub_html_extraction():
     html = (
         "<html><body><p>فصل أول</p>"
         "<p>نص كامل كافي للاستخراج هنا وهو طويل بشكل مريح.</p></body></html>"
-    ).encode("utf-8")
+    ).encode()
     text = proc._extract_html_text(html)
     assert "<p>" not in text
     assert "فصل" in text
@@ -40,8 +39,7 @@ def client():
     os_env_ready = True  # conftest عزّز قواعد البيانات
     from fastapi.testclient import TestClient
 
-    from src.auth import init_db, create_api_key, create_user
-    import src.auth as auth
+    from src.auth import create_api_key, create_user, init_db
 
     init_db()
     try:
@@ -65,6 +63,7 @@ def test_health(client):
 
 def test_rules_endpoint_requires_auth():
     from fastapi.testclient import TestClient
+
     from src.api import app
 
     with TestClient(app) as c:
@@ -76,7 +75,12 @@ def test_rules_endpoint_with_key(client):
     r = client.get("/rules")
     assert r.status_code == 200
     body = r.json()
-    assert len(body["rules"]) == 18
+    if "rules" in body:            # ملف v1 (قواعد التنظيف)
+        assert len(body["rules"]) == 18
+    else:                          # ميثاق v2 (الدليل البصري)
+        assert body["version"] == 2
+        assert len(body["principles"]) == 18
+        assert "✗" in body["visual_markers"]["incorrect"]
 
 
 def test_auth_me(client):
