@@ -62,7 +62,8 @@ def save_state(state: dict):
 def process_talk(talk: dict, langs: list, session: requests.Session) -> dict:
     """حمّل ترجمات محادثة واحدة."""
     slug = talk["slug"]
-    talk_url = talk["url"]
+    # census-derived lists carry no "url" — synthesize; numeric id short-circuits extraction
+    talk_url = talk.get("url") or f"https://www.ted.com/talks/{slug}"
     result = {
         "slug": slug, "url": talk_url, "title": talk.get("title", ""),
         "talk_id": talk.get("id", ""), "subs": {},
