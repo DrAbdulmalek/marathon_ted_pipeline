@@ -8,6 +8,7 @@ data/logs/*
 data/auth.db
 data/test_auth.db
 data/webhooks.db
+data/test_webhooks.db   # artifact اختباري — كان متتبَّعاً خطأً ويلوّث شجرة العمل
 data/ab_testing.db
 data/quality.db
 *.wrong.md
@@ -16,3 +17,6 @@ data/quality.db
 .pytest_cache/
 .venv/
 venv/
+
+# PR description working files live on the PR body (archive), not in the tree
+PR_DESCRIPTION*.md
