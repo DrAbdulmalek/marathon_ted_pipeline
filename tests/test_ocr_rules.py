@@ -204,11 +204,27 @@ def test_charter_version_is_2(charter):
 
 
 def test_charter_has_original_literal_markers(charter):
-    """السلاسل الحرفية التي كانت مفقودة في المُعاد بناؤه."""
+    """السلاسل الحرفية التي كانت مفقودة في المُعاد بناؤه.
+
+    توفيق الدمج (2026-10-03): X/x انتقلوا من incorrect النشطة إلى
+    visual_markers.ambiguous (سياسة REQUIRE_CONTEXT_OR_LEGEND) — اتساقًا مع
+    محرك v1/v2 نفسه الذي يستبعدهما عمدًا (وسم كل X يفسد X-ray والمتغيرات
+    والأرقام الرومانية). القفل يفحص العقد الفعلي: الرموز القاطعة تبقى في
+    incorrect، والغامضة لها قسمها المُدار بسياق.
+    """
     incorrect = charter.visual_markers_cfg["incorrect"]
     correct = charter.visual_markers_cfg["correct"]
-    for m in ("✗", "✘", "X", "x", "✖", "❌"):
+    for m in ("✗", "✘", "✖", "❌"):
         assert m in incorrect, f"{m} مفقود!"
+    for m in ("X", "x"):
+        # العقد الفعلي: X/x قد تظهر في سمة العرض (دمج الافتراضات التراثية)
+        # لكن **المجموعة الفعالة** R14 (params.markers) يجب ألا تحتويهما —
+        # سياسة السياق REQUIRE_CONTEXT_OR_LEGEND في القسم الميثاقي.
+        assert m in charter.config["visual_markers"]["ambiguous"], (
+            f"{m} يجب أن يكون في ambiguous (سياسة السياق)")
+        active = (charter.rules.get("R14", {}).get("params", {})
+                  .get("markers", []))
+        assert m not in active, f"{m} لا يجوز أن يكون في مجموعة R14 الفعالة!"
     for m in ("✓", "✔", "☑"):
         assert m in correct, f"{m} مفقود!"
 

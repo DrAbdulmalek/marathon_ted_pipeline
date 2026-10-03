@@ -7,7 +7,6 @@ import yaml
 
 from src.languages import LanguageRegistry, get_registry
 from src.translator import (
-    _DEFAULT_HF_MODELS,
     FinetunedTranslator,
     HFTranslator,
     TranslationResult,
@@ -47,25 +46,30 @@ def test_rtl_flags():
 # ---------- الإصلاح 2: عقد FinetunedTranslator ----------
 def test_finetuned_signature_and_contract():
     sig = inspect.signature(FinetunedTranslator.__init__)
+    # الدمج مع نسخة Qwen: init صار (model_dir=None) مع حل مسار CWD-مستقل،
+    # والاتجاه انقل إلى translate(src,tgt) — لا باراميترات src/tgt في init.
     assert "model_dir" in sig.parameters
-    assert sig.parameters["src"].default == "en"
-    assert sig.parameters["tgt"].default == "ar"
     tr_sig = inspect.signature(FinetunedTranslator.translate)
     assert tr_sig.return_annotation is TranslationResult
 
 
 # ---------- الإصلاح 3: اختيار نموذج HF حسب الاتجاه ----------
 def test_hf_model_selection_by_direction():
-    assert _DEFAULT_HF_MODELS[("en", "ar")] == "Helsinki-NLP/opus-mt-en-ar"
-    assert _DEFAULT_HF_MODELS[("ar", "en")] == "Helsinki-NLP/opus-mt-ar-en"
+    # الدمج: الجدول صار HFTranslator.PAIR_MODELS والاختيار عبر select_model
+    assert HFTranslator.PAIR_MODELS[("en", "ar")] == "Helsinki-NLP/opus-mt-en-ar"
+    assert HFTranslator.PAIR_MODELS[("ar", "en")] == "Helsinki-NLP/opus-mt-ar-en"
     t = HFTranslator()  # بلا تحميل — init كسول
-    assert t._model_name_for("en", "ar") == "Helsinki-NLP/opus-mt-en-ar"
-    assert t._model_name_for("ar", "en") == "Helsinki-NLP/opus-mt-ar-en"
-    # اتجاه غير معروف → الافتراضي الآمن en→ar
-    assert t._model_name_for("fr", "es") == "Helsinki-NLP/opus-mt-en-ar"
-    # نموذج صريح يتجاوز الخريطة
+    assert t.select_model("en", "ar") == "Helsinki-NLP/opus-mt-en-ar"
+    assert t.select_model("ar", "en") == "Helsinki-NLP/opus-mt-ar-en"
+    # زوج غير موجود في PAIR_MODELS لكنه في سجل اللغات (es لديها marian)
+    # → select_model يرجع نموذج السجل ويحذّر على عدم تطابق المصدر — سلوك أغنى
+    # من الافتراضي الأعمى، وهو العقد المصمم لنسخة Qwen.
+    assert t.select_model("fr", "es") == "Helsinki-NLP/opus-mt-en-es"
+    # زوج مجهول كليًا (لا جدول لا سجل) → الافتراضي الآمن en→ar
+    assert t.select_model("zz", "qq") == "Helsinki-NLP/opus-mt-en-ar"
+    # نموذج صريح يتجاوز كل شيء
     t2 = HFTranslator(model_name="custom/model")
-    assert t2._model_name_for("ar", "en") == "custom/model"
+    assert t2.select_model("ar", "en") == "custom/model"
 
 
 # ---------- الإصلاح 4: مصدر حقيقة واحد للغات ----------

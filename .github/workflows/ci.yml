@@ -53,15 +53,42 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov ruff mypy
+          # أدوات الفحص **مثبّتة الإصدار**: ruff بلا تثبيت غيّر مجموعة قواعده
+          # الافتراضية بين الإصدارات، فكان نفس الكود أخضر في يوم وأحمر في آخر.
+          # (مقياس 2026-10-03: ruff 0.16.10 على `ruff check src/ tests/` بلا
+          #  --select = 361 خطأ؛ وبـ --select E9,F63,F7,F82 = صفر.)
+          pip install pytest pytest-asyncio pytest-cov "ruff==0.16.10" "mypy==1.18.2"
 
-      # سياسة lint: الأخطاء الحقيقية فقط (syntax/undefined names) — الدَين الأسلوبي
-      # القديم (~344 بندًا من main) يُشدَّد تدريجيًا في PRs لاحقة، لا يُغرق CI به هنا
-      - name: Lint with ruff
-        run: ruff check src/ tests/ --select E9,F63,F7,F82 --ignore E501
+      - name: Lint with ruff (critical rules — blocking)
+        # E9 = أخطاء صياغة/تنفيذ، F63 = مقارنات خاطئة، F7 = أخطاء تركيبية،
+        # F82 = أسماء غير معرّفة. هذه هي الأعطال الحقيقية.
+        # الفحص الأسلوبي الكامل (361 نتيجة اليوم) يُشغَّل **استشارياً** في الخطوة
+        # التالية حتى لا يحجب بوابة الدمج، وحتى لا يختفي تماماً.
+        run: ruff check src/ tests/ --select E9,F63,F7,F82
 
-      - name: Type check with mypy
-        run: mypy src/ --ignore-missing-imports --no-strict-optional || true
+      - name: Lint with ruff (full style report — informational)
+        run: ruff check src/ tests/ --output-format=github --exit-zero
+
+      - name: Type check with mypy (ratchet — fails only when it gets worse)
+        # كان `|| true` = أخضر كاذب: 25 خطأ أنواع تمر بلا أثر ولا سجل.
+        # والحل ليس إزالة `|| true` وحدها (تُحمرّ CI فوراً وتُجمّد الدمج) بل
+        # **آلية ratchet**: يُقبل العدد الحالي كخط أساس مُودَع في المستودع، ويفشل
+        # البناء عند أي زيادة، ويُطلب تحديث خط الأساس صراحةً عند كل نقصان.
+        run: |
+          set -uo pipefail
+          BASELINE_FILE=".github/mypy-baseline.txt"
+          mypy src/ --ignore-missing-imports --no-strict-optional > mypy-report.txt 2>&1 || true
+          cat mypy-report.txt
+          COUNT=$(grep -cE "^src/.*: error:" mypy-report.txt || true)
+          BASELINE=$(cat "$BASELINE_FILE" 2>/dev/null || echo 0)
+          echo "mypy errors: $COUNT (baseline: $BASELINE)"
+          if [ "$COUNT" -gt "$BASELINE" ]; then
+            echo "::error::mypy regressions: $COUNT > baseline $BASELINE. Fix them, or lower the baseline deliberately in $BASELINE_FILE."
+            exit 1
+          fi
+          if [ "$COUNT" -lt "$BASELINE" ]; then
+            echo "::notice::mypy improved to $COUNT — lower $BASELINE_FILE to lock the gain in."
+          fi
 
       - name: Run tests
         env:

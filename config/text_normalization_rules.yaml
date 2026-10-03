@@ -1,3 +1,25 @@
+# config/text_normalization_rules.yaml
+# ---------------------------------------------------------------------------
+# Snapshot of marathon_ocr_rules.yaml v1 (R01-R18), preserved verbatim as the
+# TEXT NORMALIZATION PRE-PASS.
+#
+# Why this file exists:
+#   marathon_ocr_rules.yaml was promoted to v2 = the VISUAL EVIDENCE CHARTER.
+#   The 18 text-normalization rules did not disappear — they are the pre-pass
+#   that runs BEFORE any visual-evidence classification. Keeping them in their
+#   own file makes the two concerns independently loadable:
+#
+#       OCRProcessor(rules_file="config/marathon_ocr_rules.yaml")   # v2 charter (default)
+#       OCRProcessor(rules_file="config/text_normalization_rules.yaml")  # v1 pre-pass
+#
+#   marathon_ocr_rules.yaml v2 still carries the same 18 rules under `rules:`
+#   (superset, so no existing caller or test breaks) and additionally points at
+#   this file via `text_normalization_prepass:`.
+#
+# Byte-identical to the v1 original at the time of the split (sha256 recorded in
+# the audit report). Do not edit rules here without mirroring to the charter.
+# ---------------------------------------------------------------------------
+
 # قواعد معالجة OCR — Marathon TED Pipeline
 # 18 قاعدة مُرتَّبة حسب أولوية التنفيذ
 # مفصولة إلى: تنظيف (cleanup)، استبدال (substitution)، بنية (structure)،

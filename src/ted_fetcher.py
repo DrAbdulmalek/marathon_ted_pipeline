@@ -17,11 +17,74 @@ import requests
 logger = logging.getLogger(__name__)
 
 TED_API = "https://www.ted.com/graphql"
-TED_SUBS = "https://hls.ted.com/talks/{id}/subtitles/{lang}/full"
+
+#: المسار الحيّ **المُثبت بالقياس** (تدقيق 2026-10-03):
+#:   GET hls.ted.com/talks/sir_ken_robinson_do_schools_kill_creativity/subtitles/en/full.vtt
+#:     -> 200, Content-Type: text/vtt; charset=utf-8, 30867 B, يبدأ بـ "WEBVTT"
+#:   GET .../subtitles/en/full      (بلا .vtt)
+#:     -> 404
+#: الصيغة القديمة في هذا الملف كانت بلا `.vtt`، فكان كل جلب رسمي يفشل 404 ثم
+#: يُبتلع في `except` ويُسجَّل debug فقط — فشل صامت كامل للمسار «الرسمي».
+TED_SUBS = "https://hls.ted.com/talks/{id}/subtitles/{lang}/full.vtt"
+
+#: المُعرِّف في المسار أعلاه يقبل **الـ slug** وهو المفتاح الموثوق الوحيد.
+#: مُثبت: talks/66 (legacy id) و talks/<slug> يرجعان محتوىً متطابقاً بايتاً ببايت
+#: (sha256 366a2faa137471155760f0bf…, 30867 B)، بينما talks/3292 — وهو `id`
+#: الذي يعيده GraphQL — يرجع **404**. أي أن هناك فضاءين رقميين مختلفين، ولا
+#: يمكن الاعتماد على أي رقم؛ الـ slug هو المرجع.
+PREFER_SLUG = True
+
 _UA = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) MarathonTEDPipeline/1.0",
 }
 
+
+def parse_vtt(raw: str) -> str:
+    """يحوّل WebVTT إلى نص متصل — دالة نقية قابلة للاختبار بلا شبكة.
+
+    يتجاهل: سطر `WEBVTT`، `X-TIMESTAMP-MAP`، أي سترينغ بداية (NOTE/STYLE/REGION)،
+    ومؤشرات الزمن `00:00:02.103 --> 00:00:04.778`، ومعرّفات الـ cue الرقمية.
+    يفكّ وسوم VTT (<c>, <v Speaker>, <b>) ويحوّل الكيانات HTML الأساسية.
+    """
+    import html
+    import re as _re
+
+    #: كتل WebVTT التي تُتخطى **بمحتواها** حتى أول سطر فارغ (حسب المواصفة):
+    #: NOTE (تعليق)، STYLE (CSS مثل ::cue{})، REGION (تعريف منطقة).
+    #: تخطّي السطر الأول وحده كان يترك CSS يتسرب إلى النص.
+    _BLOCK_HEADERS = ("NOTE", "STYLE", "REGION")
+
+    lines_out: list = []
+    skipping_block = False
+    for line in raw.splitlines():
+        s = line.strip()
+
+        if not s:                            # سطر فارغ = نهاية أي كتلة
+            skipping_block = False
+            continue
+        if skipping_block:
+            continue
+        if s.startswith(_BLOCK_HEADERS):
+            skipping_block = True
+            continue
+
+        if s.startswith(("WEBVTT", "X-TIMESTAMP-MAP", "Kind:", "Language:")):
+            continue
+        if "-->" in s:                       # سطر توقيت
+            continue
+        if _re.fullmatch(r"\d{1,5}", s):     # معرّف cue رقمي
+            continue
+        s = _re.sub(r"<[^>]+>", "", s)        # وسوم VTT
+        s = html.unescape(s)
+        if s:
+            lines_out.append(s)
+    return " ".join(lines_out).strip()
+
+
+def _gql_quote(value: str) -> str:
+    """يهرّب نصاً ليصبح literal داخل استعلام GraphQL (أمان + صحة صياغة)."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
 
 @dataclass
 class TedTranscript:
@@ -68,45 +131,102 @@ class TedFetcher:
             return None
 
     # ---------- النمط 1: TED الرسمي ----------
+    def _fetch_subtitle(self, key: str, lang: str) -> str:
+        """يجلب ترجمة لغة واحدة لمفتاح (slug أو رقم) ويعيد نصاً أو "".
+
+        يستدعي المسار المُثبت `.vtt` ويحلّله بـ :func:`parse_vtt`. يحتفظ بمسار
+        JSON احتياطي لأن TED غيّر صيغ التوزيع سابقاً؛ أي استجابة غير VTT
+        تُجرَّب كـ JSON بدل أن تُرمى بصمت.
+        """
+        url = TED_SUBS.format(id=key, lang=lang)
+        r = requests.get(url, headers=_UA, timeout=self.timeout)
+        if r.status_code != 200:
+            logger.debug("ترجمة %s/%s -> HTTP %s", key, lang, r.status_code)
+            return ""
+        ctype = (r.headers.get("Content-Type") or "").lower()
+        body = r.text
+        if "vtt" in ctype or body.lstrip().startswith("WEBVTT"):
+            return parse_vtt(body)
+        try:                                 # مسار قديم/احتياطي: JSON
+            data = r.json()
+        except ValueError:
+            logger.warning("استجابة غير VTT وغير JSON من %s", url)
+            return ""
+        paragraphs = data.get("paragraphs") or data.get("captions") or []
+        return " ".join(p.get("text", "") for p in paragraphs).strip()
+
     def _fetch_via_ted_api(
         self, slug: str, source_lang: str, target_lang: str
     ) -> Optional[TedTranscript]:
+        """الـ slug أولاً — لا حاجة لحلّ رقمي ولا لكشط HTML.
+
+        مُثبت بالقياس (2026-10-03): الـ slug يعمل مباشرة على hls.ted.com، بينما
+        الأرقام تنتمي لفضاءين مختلفين (legacy يعمل، و`id` من GraphQL يرجع 404).
+        لذلك `_resolve_talk_id` صار **سنداً احتياطياً** لا شرطاً؛ وكان سابقاً
+        شرطاً يُسقط الجلب كله عند فشل كشط HTML.
+        """
+        candidates = [slug] if PREFER_SLUG else []
         talk_id = self._resolve_talk_id(slug)
-        if not talk_id:
+        if talk_id:
+            candidates.append(str(talk_id))
+        if not candidates:
+            logger.debug("لا slug ولا talk_id للجلب الرسمي")
             return None
-        result = {}
-        for lang in (source_lang, target_lang):
-            if not lang:
-                continue
-            try:
-                r = requests.get(
-                    TED_SUBS.format(id=talk_id, lang=lang),
-                    headers=_UA, timeout=self.timeout,
-                )
-                if r.status_code != 200:
+
+        result: dict = {}
+        used_key = None
+        for key in candidates:
+            for lang in (source_lang, target_lang):
+                if not lang or lang in result:
                     continue
-                data = r.json()
-                paragraphs = (
-                    data.get("paragraphs", [])
-                    or data.get("captions", [])
-                )
-                text = " ".join(
-                    p.get("text", "") for p in paragraphs
-                ).strip()
+                try:
+                    text = self._fetch_subtitle(key, lang)
+                except Exception as exc:
+                    logger.debug("فشل جلب ترجمة %s (%s): %s", lang, key, exc)
+                    continue
                 if text:
                     result[lang] = text
-            except Exception as exc:
-                logger.debug("فشل جلب ترجمة %s: %s", lang, exc)
-        if "en" not in result and source_lang not in result:
+                    used_key = key
+        if source_lang not in result and "en" not in result:
             return None
+
+        meta = self._lookup_via_graphql(slug)
+        title = meta.get("title") or slug.replace("_", " ").title()
         return TedTranscript(
-            talk_id=str(talk_id),
-            title=slug.replace("_", " ").title(),
+            talk_id=str(meta.get("id") or used_key or slug),
+            title=title.strip(),
             url=f"https://www.ted.com/talks/{slug}",
             source_text=result.get(source_lang, ""),
             target_text=result.get(target_lang),
             source_lang=source_lang,
         )
+
+    # ---------- GraphQL: بيانات وصفية (مُثبت أنه يعمل بلا مفتاح) ----------
+    #: الحقول المُثبت قبولها (2026-10-03). الحقول legacyId/legacyTalkId/
+    #: contentId/language/primaryLanguage **مرفوضة** من الخادم
+    #: (GRAPHQL_VALIDATION_FAILED: Cannot query field)، وintrospection معطّل
+    #: (INTROSPECTION_DISABLED) — لذلك تُختبر الحقول تجريبياً لا بالحدس.
+    GRAPHQL_SEARCH_FIELDS = "id slug title url description publishedAt"
+
+    def _lookup_via_graphql(self, query: str) -> dict:
+        """يعيد بيانات أول نتيجة بحث، أو {} عند أي فشل (لا يُفشل الجلب أبداً)."""
+        try:
+            r = requests.post(
+                TED_API,
+                json={"query": "{search(q:%s){results{... on SearchTalk{%s}}}}"
+                             % (_gql_quote(query), self.GRAPHQL_SEARCH_FIELDS)},
+                headers={**_UA, "Content-Type": "application/json"},
+                timeout=self.timeout,
+            )
+            if r.status_code != 200:
+                return {}
+            results = (((r.json() or {}).get("data") or {}).get("search") or {}).get("results") or []
+            for item in results:
+                if isinstance(item, dict) and item.get("slug"):
+                    return item
+        except Exception as exc:
+            logger.debug("GraphQL غير متاح: %s", exc)
+        return {}
 
     # ---------- النمط 2: خدمة ted2srt_py المحلية ----------
     def _fetch_via_ted2srt(
@@ -142,10 +262,13 @@ class TedFetcher:
         if not self.apify_token:
             return None
         try:
+            # أمان: التوكن في الترويسة لا في الـ query string. وجوده في الرابط
+            # يعني تسرّبه إلى سجلات الخادم والوكيلات وترويسة Referer — وهو
+            # تسريب اعتماد دائم لا يُصلحه تدوير المفتاح وحده.
             run = requests.post(
-                f"https://api.apify.com/v2/acts/dtrungjin~ted-talk-scraper"
-                f"/runs?token={self.apify_token}",
+                "https://api.apify.com/v2/acts/dtrungjin~ted-talk-scraper/runs",
                 json={"startUrls": [{"url": ted_url}]},
+                headers={"Authorization": f"Bearer {self.apify_token}"},
                 timeout=self.timeout,
             )
             run.raise_for_status()
@@ -153,8 +276,9 @@ class TedFetcher:
             for _ in range(30):  # حتى ~90 ثانية
                 time.sleep(3)
                 st = requests.get(
-                    f"https://api.apify.com/v2/actor-runs/{run_id}"
-                    f"?token={self.apify_token}", timeout=self.timeout,
+                    f"https://api.apify.com/v2/actor-runs/{run_id}",
+                    headers={"Authorization": f"Bearer {self.apify_token}"},
+                    timeout=self.timeout,
                 ).json()
                 if st["data"]["status"] in ("SUCCEEDED", "FAILED"):
                     break
@@ -162,8 +286,9 @@ class TedFetcher:
                 return None
             items = requests.get(
                 f"https://api.apify.com/v2/datasets/"
-                f"{st['data']['defaultDatasetId']}/items"
-                f"?token={self.apify_token}", timeout=self.timeout,
+                f"{st['data']['defaultDatasetId']}/items",
+                headers={"Authorization": f"Bearer {self.apify_token}"},
+                timeout=self.timeout,
             ).json()
             if not items:
                 return None

@@ -1,125 +1,83 @@
+# =============================================================================
+# marathon_ocr_rules.yaml — v2: VISUAL EVIDENCE CHARTER
+# =============================================================================
+# هذا الملف ميثاق «الدليل البصري» لمعالجة OCR في Marathon TED Pipeline.
+#
+# القاعدة الحاكمة (ولماذا هذا الإصدار موجود):
+#   نص OCR «نظيف» ليس دليلاً على أنه «صحيح». صفحة مليئة بجمل عربية سليمة
+#   الإملاء قد تكون مثالاً على خطأ مقصود في المصدر. تصنيف المحتوى بأنه
+#   positive_example اعتماداً على نسبة سلامة الكلمات وحدها يسمّم بيانات التدريب
+#   بصمت — وهو أخطر فشل في هذا المشروع لأنه غير مرئي في المخرجات.
+#   لذلك: الصحة/الخطأ تُستنتج من **دليل بصري** (رمز ✓/✗، لون + مفتاح ألوان،
+#   تسمية صريحة في المصدر)، وإلا فالنتيجة `uncertain` — لا `correct`.
+#
+# التوافق (مهم):
+#   * الإصدار 1 (قواعد R01-R18) محفوظ حرفياً في
+#     config/text_normalization_rules.yaml ويعمل كـ pre-pass مستقل.
+#   * هذا الملف **superset**: يحتفظ بقائمة `rules:` نفسها (R01..R18) حتى لا
+#     ينكسر OCRProcessor ولا أي اختبار قائم، ويضيف أقسام الميثاق أدناه.
+#   * sha256 لنسخة v1 الأصلية وقت الفصل:
+#     40aac3d10dacb04455f011ae3aad748d569e793db4ec96cd5611c79a36c60271
+#
+# الأقسام الجديدة في v2:
+#   visual_markers · color_semantics · uncertainty_flags · classification_labels
+#   final_verification · training_data_rules · text_normalization_prepass
+# =============================================================================
 version: 2
 name: marathon_ocr_visual_evidence_charter
-description: >
-  ميثاق حفظ الدليل البصري في OCR — ليس محرك تنظيف نصوص.
-  الغرض: الفصل الدلالي بين الصحيح/الخاطئ/المشكوك وحفظ الرموز والألوان
-  كدليل قابل للتدقيق، مع منع تصحيح المصدر بصمت ومنع تلويث بيانات التدريب.
-  قواعد التنظيف النصي (R01-R18 السابقة) انتقلت إلى config/text_normalization_rules.yaml
-  وتعمل كمرحلة تهيئة (pre-pass) قبل هذا الميثاق.
 
-# المبادئ 1-18 من الأصل — كعقيدة غير قابلة للتجاوز
-principles:
-  p01_goal: >
-    النص المستخرج لا يُعتبر صحيحًا تلقائيًا. يجب التمييز بين:
-    النص الأساسي الموثوق، المثال التعليمي، الخطأ المقصود،
-    التصحيح، المشكوك فيه، والدليل البصري الدلالي.
-  p02_telegram_intake:
-    - تنزيل الملف الأصلي دون تعديل
-    - الاحتفاظ بالامتداد الأصلي
-    - حساب SHA-256
-    - تسجيل المصدر والقناة والتاريخ
-    - عدم اعتبار اسم الملف دليلًا على المحتوى
-  p03_tables: الحفاظ على البنية والعلاقات بين الخلايا. Markdown مفضل. لا اختراع بنية غير مؤكدة.
-  p04_images_not_truth: وجود نص في صورة لا يعني صحته — قد يكون مثالًا، خطأً، أو مقارنة.
-  p05_images_with_text: البحث عن مؤشرات الصحة/الخطأ قبل اعتبار المحتوى حقيقة.
-  p06_marker_semantics: >
-    ✓ ✔ = صحيح؛ ✗ ✘ X = خاطئ — لكن فقط بعد فحص السياق.
-    X قد تكون رمزًا طبيًا أو جزءًا من النص.
-  p07_color_semantics: >
-    أحمر = خاطئ، أخضر = صحيح — فقط إن وُجد Legend.
-    بدون Legend: COLOR_SEMANTICS_UNCERTAIN.
-  p08_correct_vs_wrong: لا خلط في خلية واحدة، لا عكس أعمدة، لا حذف علامات، لا اعتبار الأول مرجعيًا.
-  p09_error_examples: الصور التعليمية للأخطاء تُصنَّف EXAMPLE_OF_ERROR، لا تدخل كحقيقة.
-  p10_uncertainty: عدم اليقين يُعلَن صراحةً (VISUAL_CONFIDENCE_LOW / VISUAL_INTERPRETATION_UNCERTAIN) — لا اختلاق قرار.
-  p11_no_inventing: "عند التعارض، لا إجبار الاتساق. الأولوية: المصدر > البنية > العلامات > السياق > النص."
-  p12_no_silent_fix: الخطأ المقصود يُحفظ كما هو. التصحيح يُضاف في حقل منفصل.
-  p13_visual_metadata: حفظ source_type, page, image_index, ocr_text, visual_status, visual_marker, color_status, confidence.
-  p14_medical_strict: "في الطب، الفصل صارم: source/correct/incorrect/suggested/educational. لا تحويل مثال خاطئ إلى صحيح."
-  p15_training_data: الترجمة الخاطئة لا تدخل كـtarget. positive_example فقط عند دليل كافٍ. الباقي uncertain.
-  p16_output: "Markdown مفضل عند حفظ الجداول. عند العجز: احفظ نسخة خام + Markdown منظم + الإشارة للفقد."
-  p17_final_review: التحقق من الجداول، الأعمدة، الصور، ✓/✗/X، الألوان، الفصل، الأمثلة، عدم اليقين، وعدم التصحيح الصامت.
-  p18_core_principle: >
-    "OCR extracts what is visible; it does not automatically determine what is true."
-    الحفاظ على الفرق بين ما يقوله المصدر وما تشير الصورة إلى صحته وما لم نتحقق منه.
-
+# ---------- الميثاق: الدليل البصري ----------
 visual_markers:
-  correct:
-    - "✓"    # U+2713
-    - "✔"    # U+2714
-    - "☑"    # U+2611
-  incorrect:
-    - "✗"    # U+2717 — كان محذوفًا في المُعاد بناؤه
-    - "✘"    # U+2718 — كان محذوفًا
-    - "X"    # ASCII X — كان محذوفًا
-    - "x"    # ASCII x
-    - "✖"    # U+2716
-    - "❌"   # U+274C
-  caution: >
-    X ليست دائمًا خاطئة. قد تكون رمزًا طبيًا، إشارة ضرب،
-    أو حرفًا في اسم. يجب فحص السياق البصري قبل التصنيف.
-  context_keywords:
-    correct: ["correct", "right", "صحيح", "صواب", "الترجمة الصحيحة"]
-    incorrect: ["incorrect", "wrong", "error", "خطأ", "خاطئ", "الترجمة الخاطئة"]
-    revision: ["correction", "revised", "suggested translation", "التصحيح", "مقترح"]
+  # رموز لا لبس فيها — تُستخدم مباشرة كدليل بصري.
+  correct: ["✓", "✔", "☑", "✅"]
+  incorrect: ["✗", "✘", "✖", "❌", "☒", "🚫"]
+  caution_symbol: ["⚠", "⚠️", "❗", "‼"]
+  # الرموز الغامضة: لا تُعامل كدليل بصري إلا بسياق/مفتاح.
+  # السبب: الحرف اللاتيني X يظهر في نص طبي سليم (X-ray، X = متغير، أرقام رومانية،
+  # أسماء أدوية وجينات)، وتحويله آلياً إلى «خطأ» يفسد النص السليم.
+  ambiguous: ["X", "x"]
+  ambiguous_policy: REQUIRE_CONTEXT_OR_LEGEND
+  caution: "X ليست دائمًا خاطئة — قد تكون رمزًا طبيًا (X-ray) أو متغيرًا أو رقمًا رومانيًا"
 
 color_semantics:
-  rule: "لا تُفسَّر الألوان دون Legend صريح"
-  red_intent: "incorrect"
-  green_intent: "correct"
-  yellow_intent: "warning_or_review"
+  # اللون لا يحمل معنى ثابتًا عبر المستندات: الأحمر = خطأ في مستند،
+  # و= تنبيه/أولوية في آخر، و= «مهم» في ثالث.
   require_legend: true
-  legend_keywords: ["legend", "key", "مفتاح", "دليل", "correct:", "incorrect:", "صحيح:", "خاطئ:"]
-  on_missing_legend: "COLOR_SEMANTICS_UNCERTAIN"
-
-classification_labels:
-  positive_example: "جملة مشار إليها بصريًا كصحيحة"
-  negative_example: "جملة مشار إليها بصريًا كخاطئة"
-  example_of_error: "صورة توضح خطأً لأغراض تعليمية"
-  incorrect_example: "مثال خطأ مقصود في مصدر تعليمي"
-  visual_correction_example: "صورة تعرض خطأً ثم تصحيحه"
-  uncertain: "لا يمكن الجزم"
-  neutral: "لا دليل بصري على صحة/خطأ"
+  on_missing_legend: COLOR_SEMANTICS_UNCERTAIN
+  legend_search_scope: [same_page, facing_page, document_front_matter]
+  never_assume:
+    red: incorrect
+    green: correct
 
 uncertainty_flags:
-  visual_confidence_low: "VISUAL_CONFIDENCE_LOW"
-  visual_interpretation: "VISUAL_INTERPRETATION_UNCERTAIN"
-  color_semantics: "COLOR_SEMANTICS_UNCERTAIN"
+  # الوسوم المعتمدة. أي عدم يقين يجب أن يظهر كوسم صريح في المخرجات،
+  # لا كقرار ضمني — ولا يُصحَّح شيء بصمت (no_silent_correction).
+  visual_confidence_low: VISUAL_CONFIDENCE_LOW
+  visual_interpretation: VISUAL_INTERPRETATION_UNCERTAIN
+  color_semantics: COLOR_SEMANTICS_UNCERTAIN
+  ambiguous_marker: AMBIGUOUS_MARKER_NEEDS_CONTEXT
+  low_ocr_confidence: OCR_CONFIDENCE_LOW
+  emitted_in: [metadata.uncertainty_flags, markdown_inline_marker]
 
-visual_metadata_schema:
-  source_type: "pdf | epub | image | telegram"
-  page: "int"
-  image_index: "int"
-  ocr_text: "string"
-  visual_status: "correct | incorrect | uncertain | neutral"
-  visual_marker: "check | x | other | none"
-  color_status: "green | red | other | uncertain"
-  confidence: "high | medium | low"
-
-training_data_rules:
-  positive_example:
-    required_evidence: ["visual_marker=check"]
-    also_acceptable: ["color_status=green + legend_present"]
-  negative_example:
-    required_evidence: ["visual_marker=x"]
-    also_acceptable: ["color_status=red + legend_present"]
-  never_as_target: "negative_example"
-  uncertain_handling: "لا يُستخدم كمرجع دون مراجعة بشرية"
-
-# توافق العرض: cmd_rules في telegram_bot.py يقرأ table_rules.output_format
-table_rules:
-  output_format: "markdown"
-  preserve_columns: true
-
-output_format:
-  preferred: "markdown"
-  preserve_columns: true
-  if_cannot_represent:
-    - "احفظ نسخة خام"
-    - "احفظ تمثيل Markdown"
-    - "أشر للأجزاء المفقودة"
-    - "لا تدّعِ مطابقة بصرية"
+classification_labels:
+  # التصنيفات المسموح بها فقط. أي مخرج بلا دليل بصري → uncertain.
+  allowed:
+    - positive_example          # مثال صحيح مؤكَّد بدليل بصري
+    - negative_example          # مثال خاطئ مؤكَّد بدليل بصري
+    - example_of_error          # المصدر يعرض الخطأ عمدًا (حالة تدريب حساسة)
+    - incorrect_example         # مرادف لـ negative_example (يُوحَّد عند التصدير)
+    - visual_correction_example # زوج قبل/بعد مصحَّح بصريًا
+    - uncertain                 # لا دليل بصري كافٍ — الافتراضي الآمن
+    - neutral                   # محتوى وصفي بلا حكم صحة/خطأ
+  default_when_no_visual_evidence: uncertain
+  # positive_example و negative_example **ليسا** مترادفين ولا قابلين للتبادل:
+  # الأول = المحتوى صحيح، الثاني = المحتوى معروض كمثال على الخطأ.
+  must_not_conflate: [[positive_example, negative_example],
+                      [positive_example, example_of_error]]
 
 final_verification:
+  # قائمة الفحص قبل اعتبار أي مخرَج OCR مقبولاً. كل بند boolean، وأي بند
+  # غير محقق يوسم المخرَج ولا يُحذف ولا يُصحَّح بصمت.
   checklist:
     - tables_preserved
     - column_order_preserved
@@ -132,13 +90,182 @@ final_verification:
     - no_silent_correction
     - training_safety_verified
     - original_reference_traceable
-  verdicts: ["PASS", "PARTIAL", "UNCERTAIN", "FAILED"]
+  blocking: [no_silent_correction, training_safety_verified,
+             original_reference_traceable]
 
+training_data_rules:
+  # حماية بيانات التدريب من التضليل — جوهر الميثاق.
+  never_as_target: negative_example     # لا يُدرَّب النموذج على إنتاج مثال خاطئ
+  never_as_target_also: [example_of_error, incorrect_example, uncertain]
+  require_label: true
+  require_original_reference: true      # مسار/معرف المصدر الأصلي لكل عيّنة
+  provenance_fields: [source_file, page, marker_found, legend_found, label, uncertainty_flags]
+
+# pre-pass: قواعد التطبيع النصي (v1) — تُشغَّل قبل أي تصنيف بصري.
+text_normalization_prepass:
+  file: config/text_normalization_rules.yaml
+  version: 1
+  sha256: 40aac3d10dacb04455f011ae3aad748d569e793db4ec96cd5611c79a36c60271
+  applies_before: classification
+
+# ---------- التنظيف العام ----------
+rules:
+  - id: R01
+    name: strip_control_chars
+    description: "حذف محارف التحكم غير المرئية ( bidi marks، zero-width )"
+    enabled: true
+    category: cleanup
+
+  - id: R02
+    name: normalize_unicode_forms
+    description: "توحيد أشكال يونيكود (NFKC) للأحرف المتطابقة بصريًا"
+    enabled: true
+    category: cleanup
+
+  - id: R03
+    name: collapse_whitespace
+    description: "دمج المسافات المتكررة والحفاظ على فواصل الأسطر"
+    enabled: true
+    category: cleanup
+
+  - id: R04
+    name: fix_line_hyphenation
+    description: "وصل الكلمات المقطوعة بشرطة في نهاية السطر"
+    enabled: true
+    category: structure
+
+  - id: R05
+    name: merge_broken_paragraphs
+    description: "دمج أسطر الفقرة الواحدة عندما لا ينتهي السطر بعلامة ترقيم"
+    enabled: true
+    category: structure
+
+  - id: R06
+    name: remove_page_numbers
+    description: "حذف أرقام الصفحات المعزولة ( أرقام وحدها في سطر )"
+    enabled: true
+    category: cleanup
+
+  - id: R07
+    name: remove_headers_footers
+    description: "حذف الترويسات والتذييلات المتكررة أعلى/أسفل الصفحات"
+    enabled: true
+    category: cleanup
+
+  - id: R08
+    name: strip_diacritics
+    description: "حذف التشكيل مع خيار الإبقاء في بيانات التعريف"
+    enabled: true
+    category: cleanup
+    params:
+      keep_in_metadata: true
+
+  - id: R09
+    name: normalize_arabic_letters
+    description: "توحيد الألف/الياء/التاء المربوطة ( أ إ آ → ا ، ى → ي ، ة → ه اختياري )"
+    enabled: true
+    category: substitution
+    params:
+      alef_variants: true
+      ya_maqsura: true
+      ta_marbuta: false
+
+  - id: R10
+    name: normalize_diacriticless_digits
+    description: "توحيد الأرقام العربية-الهندية (٠-٩) إلى (0-9) مع حفظ النسخة الأصلية"
+    enabled: true
+    category: substitution
+    params:
+      keep_original: true
+
+  - id: R11
+    name: normalize_punctuation
+    description: "توحيد علامات الترقيم ( ، ، ؛ ، ؟ ) إلى الصيغة القياسية"
+    enabled: true
+    category: substitution
+
+  - id: R12
+    name: normalize_quotes
+    description: "توحيد علامات الاقتباس المزدوجة والمفردة"
+    enabled: true
+    category: substitution
+
+  - id: R13
+    name: common_ocr_substitutions
+    description: "جدول أخطاء OCR الشائعة ( و/ؤ ، ه/ة في السياق ، لأ لإ لا )"
+    enabled: true
+    category: substitution
+    params:
+      table:
+        "ﻻ": "لا"
+        "ﻷ": "لأ"
+        "ﻹ": "لإ"
+        "ﺁ": "آ"
+
+  - id: R14
+    name: detect_visual_markers
+    description: "كشف علامات الصحة/الخطأ والتحذير وعزلها كدليل بصري؛ لا يستنتج الصحة من النص وحده"
+    enabled: true
+    category: separation
+    params:
+      # الرموز غير الغامضة فقط. الحرفان X/x مستثنيان عمداً من `markers`
+      # (انظر visual_markers.ambiguous) لأن وسم كل X في نص طبي يفسد
+      # X-ray والمتغيرات والأرقام الرومانية.
+      markers: ["✓", "✔", "☑", "✗", "✘", "✖", "❌", "☒", "🚫",
+                "⚠", "✅", "🔴", "🟢", "🟡", "⭐", "★", "※", "†", "‡"]
+      # تُعالَج بسياق/مفتاح فقط، ولا توسم آلياً:
+      ambiguous_markers: ["X", "x"]
+      ambiguous_flag: AMBIGUOUS_MARKER_NEEDS_CONTEXT
+      # مصدر الحقيقة لقوائم الرموز هو قسم visual_markers أعلاه.
+      markers_from_charter: true
+
+  - id: R15
+    name: flag_uncertain_words
+    description: "وسم الكلمات منخفضة الثقة من OCR بعلامة [؟؟] لمراجعة بشرية"
+    enabled: true
+    category: separation
+    params:
+      min_word_length: 2
+      confidence_threshold: 0.80
+      marker: "[؟؟]"
+
+  - id: R16
+    name: separate_correct_vs_wrong
+    description: "فصل الصحيح والخاطئ فقط عند وجود دليل بصري/سياقي؛ نسبة سلامة OCR ليست دليل صحة"
+    enabled: true
+    category: separation
+    params:
+      # --- v2: الميثاق ---
+      # require_visual_evidence=true  → نسبة سلامة الكلمات لا تكفي؛ بلا دليل بصري
+      #                                 يُصنَّف المقطع `uncertain` (لا correct).
+      # الافتراضي false هنا للحفاظ على سلوك v1 واختباراته؛ فرعه
+      # audit/visual-evidence-rules يقلبها مع تحديث اختباراتها.
+      require_visual_evidence: false
+      uncertain_status: "uncertain"
+      evidence_markers_from: visual_markers      # قسم الميثاق
+      # --- v1: محفوظ للتوافق (يُقرأ فقط عندما require_visual_evidence=false) ---
+      correct_ratio_threshold: 0.85   # نسبة الكلمات السليمة لقبول المقطع "صحيحًا"
+
+  - id: R17
+    name: detect_lists_and_headings
+    description: "كشف العناوين والقوائم وتحويلها لصيغة Markdown (# و -)"
+    enabled: true
+    category: structure
+    params:
+      heading_max_words: 12
+
+  - id: R18
+    name: extract_footnotes_tables
+    description: "عزل الحواشي السفلية (¹ ² أو (1)) والجداول البسيطة إلى أقسام مستقلة"
+    enabled: true
+    category: separation
+
+# ---------- الإعدادات العامة ----------
 settings:
-  language: "ara+eng"
-  dpi: 300
+  language: "ara+eng"           # لغات tesseract
+  dpi: 300                      # دقة التحويل من PDF
+  min_confidence: 0.0           # حد الثقة الأدنى لقبول الصفحة
   output:
-    markdown_suffix: ".md"
-    raw_suffix: ".raw.txt"
+    correct_suffix: ""          # الملف الصحيح: <name>.md
+    wrong_suffix: ".wrong"      # الملف الخاطئ: <name>.md.wrong
     metadata_suffix: ".meta.json"
-    negative_example_suffix: ".negative.json"

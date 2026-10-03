@@ -8,17 +8,23 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-# المسار مستقل عن دليل العمل (CWD): الافتراضي يُشتق من موقع ملف الوحدة نفسها
-# لا من دليل التشغيل — يعمل من أي مكان. للتجاوز عند النشر: LANGUAGES_FILE=/path/to/languages.yaml
-CONFIG_PATH = Path(
-    os.getenv("LANGUAGES_FILE")
-    or Path(__file__).resolve().parent.parent / "config" / "languages.yaml"
-)
+#: مسار **مطلق** مشتق من موقع هذا الملف.
+#: كان `Path("config/languages.yaml")` نسبياً، فكان `get_registry()` يفشل
+#: بـ FileNotFoundError كلما لم يكن CWD هو جذر المستودع (systemd، Docker،
+#: pytest من مجلد آخر، أي سكربت يُستدعى من مسار مختلف). مُثبت في تقرير التدقيق.
+_DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "languages.yaml"
+
+#: يمكن التجاوز بمتغير البيئة LANGUAGES_FILE (للاختبار وللتوزيعات المخصصة).
+CONFIG_PATH = Path(os.getenv("LANGUAGES_FILE") or _DEFAULT_CONFIG_PATH)
 
 
 class LanguageRegistry:
-    def __init__(self, path: Path = CONFIG_PATH):
-        with open(path, encoding="utf-8") as f:
+    def __init__(self, path: Optional[Path] = None):
+        # يُقرأ LANGUAGES_FILE لحظة الإنشاء لا لحظة الاستيراد، حتى يعمل التجاوز
+        # في الاختبارات وفي العمليات طويلة العمر.
+        resolved = Path(path or os.getenv("LANGUAGES_FILE") or CONFIG_PATH)
+        self.path = resolved
+        with open(resolved, encoding="utf-8") as f:
             self.data = yaml.safe_load(f)["languages"]
 
     def get(self, code: str) -> Optional[Dict]:
@@ -32,6 +38,14 @@ class LanguageRegistry:
 
     def get_model_id(self, lang: str, engine: str) -> Optional[str]:
         return self.data.get(lang, {}).get("models", {}).get(engine)
+
+    def is_source_only(self, code: str) -> bool:
+        """لغة مصدر فقط (مثل `en`): موجودة في السجل لكنها لا تحتاج نموذج ترجمة إليها.
+
+        الفائدة: تمنع `MultiLangTranslator._get_backend` من رفع ValueError على لغة
+        مصدر، وتسمح للـ API بأن يعرضها كلغة إدخال صالحة.
+        """
+        return bool(self.data.get(code, {}).get("source_only", False))
 
     def supported_for_engine(self, engine: str) -> List[str]:
         return [

@@ -32,6 +32,7 @@ Public API الجديد (v2):
 import hashlib
 import json
 import logging
+import os
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -59,6 +60,13 @@ _SENTENCE_END = re.compile(r"[.!؟?…:؛]\"?\s*$")
 
 # ---------- ثوابت v2 الافتراضية (fallback) ----------
 _DEFAULT_CORRECT = ["✓", "✔", "☑"]
+
+# مسار القواعد الافتراضي **مطلق** مشتق من موقع الوحدة لا من CWD — نفس فئة
+# العطل التي أصلحتها مراجعة Qwen في languages.py (FileNotFoundError عند
+# التشغيل من أي دليل آخر). التجاوز: env MARATHON_OCR_RULES.
+_DEFAULT_RULES_FILE = (
+    Path(__file__).resolve().parent.parent / "config" / "marathon_ocr_rules.yaml"
+)
 _DEFAULT_INCORRECT = ["✗", "✘", "X", "x", "✖", "❌"]
 _DEFAULT_UNCERTAINTY = {
     "visual_confidence_low": "VISUAL_CONFIDENCE_LOW",
@@ -108,7 +116,12 @@ class OCRProcessor:
         rules_file: str | None = None,
         normalization_file: str | None = None,
     ):
-        self.rules_file = rules_file or "config/marathon_ocr_rules.yaml"
+        # الترتيب: argument > env > default مطلق (مستلهم من إصلاح مراجعة Qwen)
+        self.rules_file = str(
+            rules_file
+            or os.getenv("MARATHON_OCR_RULES")
+            or _DEFAULT_RULES_FILE
+        )
         with open(self.rules_file, encoding="utf-8") as f:
             self.config = yaml.safe_load(f) or {}
 
