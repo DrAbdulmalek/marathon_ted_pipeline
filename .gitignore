@@ -17,3 +17,6 @@ data/quality.db
 .pytest_cache/
 .venv/
 venv/
+
+# PR description working files live on the PR body (archive), not in the tree
+PR_DESCRIPTION*.md
