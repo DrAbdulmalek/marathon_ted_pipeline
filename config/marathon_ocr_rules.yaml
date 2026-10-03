@@ -1,9 +1,112 @@
-# قواعد معالجة OCR — Marathon TED Pipeline
-# 18 قاعدة مُرتَّبة حسب أولوية التنفيذ
-# مفصولة إلى: تنظيف (cleanup)، استبدال (substitution)، بنية (structure)،
-# وفصل (separation) — إخراج صحيح/خاطئ منفصل لحماية بيانات التدريب من التضليل.
-version: 1
-name: marathon_ocr_rules
+# =============================================================================
+# marathon_ocr_rules.yaml — v2: VISUAL EVIDENCE CHARTER
+# =============================================================================
+# هذا الملف ميثاق «الدليل البصري» لمعالجة OCR في Marathon TED Pipeline.
+#
+# القاعدة الحاكمة (ولماذا هذا الإصدار موجود):
+#   نص OCR «نظيف» ليس دليلاً على أنه «صحيح». صفحة مليئة بجمل عربية سليمة
+#   الإملاء قد تكون مثالاً على خطأ مقصود في المصدر. تصنيف المحتوى بأنه
+#   positive_example اعتماداً على نسبة سلامة الكلمات وحدها يسمّم بيانات التدريب
+#   بصمت — وهو أخطر فشل في هذا المشروع لأنه غير مرئي في المخرجات.
+#   لذلك: الصحة/الخطأ تُستنتج من **دليل بصري** (رمز ✓/✗، لون + مفتاح ألوان،
+#   تسمية صريحة في المصدر)، وإلا فالنتيجة `uncertain` — لا `correct`.
+#
+# التوافق (مهم):
+#   * الإصدار 1 (قواعد R01-R18) محفوظ حرفياً في
+#     config/text_normalization_rules.yaml ويعمل كـ pre-pass مستقل.
+#   * هذا الملف **superset**: يحتفظ بقائمة `rules:` نفسها (R01..R18) حتى لا
+#     ينكسر OCRProcessor ولا أي اختبار قائم، ويضيف أقسام الميثاق أدناه.
+#   * sha256 لنسخة v1 الأصلية وقت الفصل:
+#     40aac3d10dacb04455f011ae3aad748d569e793db4ec96cd5611c79a36c60271
+#
+# الأقسام الجديدة في v2:
+#   visual_markers · color_semantics · uncertainty_flags · classification_labels
+#   final_verification · training_data_rules · text_normalization_prepass
+# =============================================================================
+version: 2
+name: marathon_ocr_visual_evidence_charter
+
+# ---------- الميثاق: الدليل البصري ----------
+visual_markers:
+  # رموز لا لبس فيها — تُستخدم مباشرة كدليل بصري.
+  correct: ["✓", "✔", "☑", "✅"]
+  incorrect: ["✗", "✘", "✖", "❌", "☒", "🚫"]
+  caution_symbol: ["⚠", "⚠️", "❗", "‼"]
+  # الرموز الغامضة: لا تُعامل كدليل بصري إلا بسياق/مفتاح.
+  # السبب: الحرف اللاتيني X يظهر في نص طبي سليم (X-ray، X = متغير، أرقام رومانية،
+  # أسماء أدوية وجينات)، وتحويله آلياً إلى «خطأ» يفسد النص السليم.
+  ambiguous: ["X", "x"]
+  ambiguous_policy: REQUIRE_CONTEXT_OR_LEGEND
+  caution: "X ليست دائمًا خاطئة — قد تكون رمزًا طبيًا (X-ray) أو متغيرًا أو رقمًا رومانيًا"
+
+color_semantics:
+  # اللون لا يحمل معنى ثابتًا عبر المستندات: الأحمر = خطأ في مستند،
+  # و= تنبيه/أولوية في آخر، و= «مهم» في ثالث.
+  require_legend: true
+  on_missing_legend: COLOR_SEMANTICS_UNCERTAIN
+  legend_search_scope: [same_page, facing_page, document_front_matter]
+  never_assume:
+    red: incorrect
+    green: correct
+
+uncertainty_flags:
+  # الوسوم المعتمدة. أي عدم يقين يجب أن يظهر كوسم صريح في المخرجات،
+  # لا كقرار ضمني — ولا يُصحَّح شيء بصمت (no_silent_correction).
+  visual_confidence_low: VISUAL_CONFIDENCE_LOW
+  visual_interpretation: VISUAL_INTERPRETATION_UNCERTAIN
+  color_semantics: COLOR_SEMANTICS_UNCERTAIN
+  ambiguous_marker: AMBIGUOUS_MARKER_NEEDS_CONTEXT
+  low_ocr_confidence: OCR_CONFIDENCE_LOW
+  emitted_in: [metadata.uncertainty_flags, markdown_inline_marker]
+
+classification_labels:
+  # التصنيفات المسموح بها فقط. أي مخرج بلا دليل بصري → uncertain.
+  allowed:
+    - positive_example          # مثال صحيح مؤكَّد بدليل بصري
+    - negative_example          # مثال خاطئ مؤكَّد بدليل بصري
+    - example_of_error          # المصدر يعرض الخطأ عمدًا (حالة تدريب حساسة)
+    - incorrect_example         # مرادف لـ negative_example (يُوحَّد عند التصدير)
+    - visual_correction_example # زوج قبل/بعد مصحَّح بصريًا
+    - uncertain                 # لا دليل بصري كافٍ — الافتراضي الآمن
+    - neutral                   # محتوى وصفي بلا حكم صحة/خطأ
+  default_when_no_visual_evidence: uncertain
+  # positive_example و negative_example **ليسا** مترادفين ولا قابلين للتبادل:
+  # الأول = المحتوى صحيح، الثاني = المحتوى معروض كمثال على الخطأ.
+  must_not_conflate: [[positive_example, negative_example],
+                      [positive_example, example_of_error]]
+
+final_verification:
+  # قائمة الفحص قبل اعتبار أي مخرَج OCR مقبولاً. كل بند boolean، وأي بند
+  # غير محقق يوسم المخرَج ولا يُحذف ولا يُصحَّح بصمت.
+  checklist:
+    - tables_preserved
+    - column_order_preserved
+    - images_captured
+    - markers_captured
+    - color_semantics_preserved
+    - correct_incorrect_separated
+    - error_examples_flagged
+    - uncertainty_flagged
+    - no_silent_correction
+    - training_safety_verified
+    - original_reference_traceable
+  blocking: [no_silent_correction, training_safety_verified,
+             original_reference_traceable]
+
+training_data_rules:
+  # حماية بيانات التدريب من التضليل — جوهر الميثاق.
+  never_as_target: negative_example     # لا يُدرَّب النموذج على إنتاج مثال خاطئ
+  never_as_target_also: [example_of_error, incorrect_example, uncertain]
+  require_label: true
+  require_original_reference: true      # مسار/معرف المصدر الأصلي لكل عيّنة
+  provenance_fields: [source_file, page, marker_found, legend_found, label, uncertainty_flags]
+
+# pre-pass: قواعد التطبيع النصي (v1) — تُشغَّل قبل أي تصنيف بصري.
+text_normalization_prepass:
+  file: config/text_normalization_rules.yaml
+  version: 1
+  sha256: 40aac3d10dacb04455f011ae3aad748d569e793db4ec96cd5611c79a36c60271
+  applies_before: classification
 
 # ---------- التنظيف العام ----------
 rules:
@@ -101,11 +204,20 @@ rules:
 
   - id: R14
     name: detect_visual_markers
-    description: "كشف الرموز والألوان في النص ( ⚠ ✔ ✖ 🔴 🟢 ) وعزلها كسِمات بصرية"
+    description: "كشف علامات الصحة/الخطأ والتحذير وعزلها كدليل بصري؛ لا يستنتج الصحة من النص وحده"
     enabled: true
     category: separation
     params:
-      markers: ["⚠", "✔", "✖", "❌", "✅", "🔴", "🟢", "🟡", "⭐", "★", "※", "†", "‡"]
+      # الرموز غير الغامضة فقط. الحرفان X/x مستثنيان عمداً من `markers`
+      # (انظر visual_markers.ambiguous) لأن وسم كل X في نص طبي يفسد
+      # X-ray والمتغيرات والأرقام الرومانية.
+      markers: ["✓", "✔", "☑", "✗", "✘", "✖", "❌", "☒", "🚫",
+                "⚠", "✅", "🔴", "🟢", "🟡", "⭐", "★", "※", "†", "‡"]
+      # تُعالَج بسياق/مفتاح فقط، ولا توسم آلياً:
+      ambiguous_markers: ["X", "x"]
+      ambiguous_flag: AMBIGUOUS_MARKER_NEEDS_CONTEXT
+      # مصدر الحقيقة لقوائم الرموز هو قسم visual_markers أعلاه.
+      markers_from_charter: true
 
   - id: R15
     name: flag_uncertain_words
@@ -119,10 +231,19 @@ rules:
 
   - id: R16
     name: separate_correct_vs_wrong
-    description: "فصل مخرجات OCR الصحيحة عن الخاطئة في ملفين — لا تدريب على نص مُضلَّل"
+    description: "فصل الصحيح والخاطئ فقط عند وجود دليل بصري/سياقي؛ نسبة سلامة OCR ليست دليل صحة"
     enabled: true
     category: separation
     params:
+      # --- v2: الميثاق ---
+      # require_visual_evidence=true  → نسبة سلامة الكلمات لا تكفي؛ بلا دليل بصري
+      #                                 يُصنَّف المقطع `uncertain` (لا correct).
+      # الافتراضي false هنا للحفاظ على سلوك v1 واختباراته؛ فرعه
+      # audit/visual-evidence-rules يقلبها مع تحديث اختباراتها.
+      require_visual_evidence: false
+      uncertain_status: "uncertain"
+      evidence_markers_from: visual_markers      # قسم الميثاق
+      # --- v1: محفوظ للتوافق (يُقرأ فقط عندما require_visual_evidence=false) ---
       correct_ratio_threshold: 0.85   # نسبة الكلمات السليمة لقبول المقطع "صحيحًا"
 
   - id: R17

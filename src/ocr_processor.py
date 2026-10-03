@@ -6,6 +6,7 @@
 """
 import json
 import logging
+import os
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -42,16 +43,83 @@ class OCRStats:
     pages_dropped: int = 0
 
 
+#: المسار الافتراضي **مطلق** ومشتق من موقع هذا الملف.
+#: السبب: المسار النسبي "config/marathon_ocr_rules.yaml" يجعل الاستيراد يعمل فقط
+#: عندما يكون CWD هو جذر المستودع — فينكسر عند التشغيل من systemd أو Docker
+#: أو pytest بمجلد عمل مختلف. يمكن التجاوز بـ MARATHON_OCR_RULES.
+_DEFAULT_RULES_FILE = Path(__file__).resolve().parent.parent / "config" / "marathon_ocr_rules.yaml"
+
+#: أقسام ميثاق الدليل البصري (v2). غائبة في ملفات v1 → قاموس فارغ، فلا ينكسر شيء.
+_CHARTER_SECTIONS = (
+    "visual_markers",
+    "color_semantics",
+    "uncertainty_flags",
+    "classification_labels",
+    "final_verification",
+    "training_data_rules",
+    "text_normalization_prepass",
+)
+
+
 class OCRProcessor:
-    """منفّذ القواعد الـ 18 على نص خام قادم من PDF أو EPUB."""
+    """منفّذ القواعد الـ 18 على نص خام قادم من PDF أو EPUB.
+
+    منذ v2 يحمّل أيضاً «ميثاق الدليل البصري» (charter) إن وُجد في ملف القواعد،
+    ويعرّضه عبر :attr:`charter`. تحميل ملف v1 (بلا أقسام الميثاق) ما زال
+    مدعوماً بالكامل — :attr:`charter` يكون قاموساً فارغاً.
+    """
 
     def __init__(self, rules_file: Optional[str] = None):
-        self.rules_file = rules_file or "config/marathon_ocr_rules.yaml"
+        # الترتيب: argument > env > default مطلق
+        self.rules_file = str(
+            rules_file
+            or os.getenv("MARATHON_OCR_RULES")
+            or _DEFAULT_RULES_FILE
+        )
         with open(self.rules_file, encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
         self.rules = {r["id"]: r for r in self.config["rules"]}
         self.settings = self.config.get("settings", {})
+        #: أقسام الميثاق (v2). فارغة لملفات v1 → كل سلوك قديم محفوظ.
+        self.charter = {k: self.config[k] for k in _CHARTER_SECTIONS if k in self.config}
         self.stats = OCRStats()
+
+    # ---------- وصول الميثاق (v2) ----------
+    @property
+    def charter_version(self) -> int:
+        """رقم إصدار ملف القواعد (1 = تطبيع نصي فقط، 2 = ميثاق دليل بصري)."""
+        return int(self.config.get("version", 1))
+
+    def visual_marker_sets(self) -> dict:
+        """قوائم الرموز البصرية من الميثاق: correct / incorrect / caution / ambiguous.
+
+        تُستخدم كدليل بصري في R16. الرموز الغامضة (X/x) تُعاد منفصلة ولا تُعامل
+        كدليل — انظر visual_markers.caution في ملف القواعد.
+        """
+        vm = self.charter.get("visual_markers") or {}
+        return {
+            "correct": list(vm.get("correct") or []),
+            "incorrect": list(vm.get("incorrect") or []),
+            "caution": list(vm.get("caution_symbol") or []),
+            "ambiguous": list(vm.get("ambiguous") or []),
+        }
+
+    def classification_label(self, has_visual_evidence: bool, ratio_ok: bool) -> str:
+        """التصنيف وفق الميثاق: الدليل البصري شرط، ونظافة النص ليست دليلاً.
+
+        بلا ميثاق (v1) يرجع السلوك الثنائي القديم correct/wrong حتى لا ينكسر
+        أي مستهلك قائم.
+        """
+        allowed = (self.charter.get("classification_labels") or {})
+        default = allowed.get("default_when_no_visual_evidence", "uncertain")
+        require = bool(
+            self.rules.get("R16", {}).get("params", {}).get("require_visual_evidence", False)
+        )
+        if not self.charter or not require:
+            return "correct" if ratio_ok else "wrong"
+        if not has_visual_evidence:
+            return default
+        return "positive_example" if ratio_ok else "negative_example"
 
     # ---------- helpers ----------
     def _enabled(self, rule_id: str) -> bool:
@@ -219,7 +287,19 @@ class OCRProcessor:
         """R14: كشف الرموز والألوان وعزلها كسِمات بصرية."""
         if not self._enabled("R14"):
             return text
-        markers = self.rules["R14"].get("params", {}).get("markers", [])
+        params = self.rules["R14"].get("params", {})
+        markers = list(params.get("markers", []))
+        # v2: وسّع القائمة من الميثاق إن طُلب ذلك — جمعاً لا استبدالاً، حتى يبقى
+        # سلوك v1 كما هو. الرموز الغامضة (X/x) مستثناة دائماً: وسمها يفسد نصاً
+        # طبياً سليماً (X-ray، متغيرات، أرقام رومانية).
+        if params.get("markers_from_charter") and self.charter:
+            sets = self.visual_marker_sets()
+            for key in ("correct", "incorrect", "caution"):
+                for m in sets.get(key, []):
+                    if m not in markers:
+                        markers.append(m)
+            ambiguous = set(params.get("ambiguous_markers", [])) | set(sets.get("ambiguous", []))
+            markers = [m for m in markers if m not in ambiguous]
         found = [m for m in markers if m in text]
         if found:
             self.stats.markers_found = sorted(
@@ -248,20 +328,63 @@ class OCRProcessor:
         return re.sub(r"\S+", _flag, text)
 
     def r16_separate_correct_vs_wrong(self, text: str) -> dict:
-        """R16: فصل المخرجات الصحيحة عن الخاطئة (حماية بيانات التدريب)."""
+        """R16: فصل المخرجات الصحيحة عن الخاطئة (حماية بيانات التدريب).
+
+        v2 — الميثاق: عند ``require_visual_evidence: true`` لا تكفي نسبة سلامة
+        الكلمات؛ بلا دليل بصري (رمز ✓/✗ مثلاً) يُصنَّف المقطع ``uncertain``
+        ويُفرَّغ حقلا correct/wrong معاً حتى لا يتسرّب إلى بيانات التدريب.
+        عند ``false`` (الافتراضي) يبقى سلوك v1 حرفياً.
+
+        يعيد المفاتيح القديمة (correct/wrong/ratio) **إضافة إلى** مفاتيح جديدة
+        (classification/has_visual_evidence/evidence) — superset لا استبدال.
+        """
         params = self.rules["R16"].get("params", {})
         threshold = params.get("correct_ratio_threshold", 0.85)
+        uncertain_status = params.get("uncertain_status", "uncertain")
+        require_evidence = bool(params.get("require_visual_evidence", False))
+
+        # الدليل البصري: أي رمز صحيح/خاطئ/تحذيري من الميثاق أو من قائمة R14
+        sets = self.visual_marker_sets()
+        evidence = sorted({
+            m for m in (sets["correct"] + sets["incorrect"] + sets["caution"])
+            if m and m in text
+        })
+        has_evidence = bool(evidence) or bool(self.stats.markers_found)
+
         words = text.split()
         if not words:
-            return {"correct": "", "wrong": text, "ratio": 0.0}
+            return {"correct": "", "wrong": text, "ratio": 0.0,
+                    "classification": uncertain_status if require_evidence else "wrong",
+                    "has_visual_evidence": has_evidence, "evidence": evidence}
+
         # كلمة "سليمة" = حروف عربية/لاتينية/أرقام/ترقيم قياسي فقط
         ok_re = re.compile(r"^[\u0621-\u064aa-zA-Z0-9.,;:!?()\[\]\"'«»،؛؟-]+$")
-        good = sum(1 for w in words if ok_re.match(w))
-        ratio = good / len(words)
+        # رموز البنية التي يضيفها خط الأنابيب نفسه (R17: "##" للعناوين، "-" للقوائم)
+        # ليست ضجيج OCR. عدها كلمات "خاطئة" كان يجعل أي سطر قصير ينتهي برمز بصري
+        # يتحول إلى عنوان ثم يُصنَّف ratio-deficient ⇒ negative_example، أي أن
+        # الميثاق نفسه كان سيصنّف محتوى صحيحاً كأمثلة خاطئة. تُستبعد من البسط
+        # والمقام معاً (محايدة)، لا أن تُحتسب سليمة.
+        structural_re = re.compile(r"^(#{1,6}|-|\*|>|\|)$")
+        tokens = [w for w in words if not structural_re.match(w)]
+        if not tokens:
+            tokens = words
+        good = sum(1 for w in tokens if ok_re.match(w))
+        ratio = good / len(tokens)
+        ratio_ok = ratio >= threshold
+
+        if require_evidence and not has_evidence:
+            # لا دليل بصري ⇒ لا حكم. لا يُصنَّف "صحيحاً" لمجرد أنه نص نظيف.
+            return {"correct": "", "wrong": "", "ratio": round(ratio, 4),
+                    "classification": uncertain_status,
+                    "has_visual_evidence": False, "evidence": []}
+
         return {
-            "correct": text if ratio >= threshold else "",
-            "wrong": "" if ratio >= threshold else text,
+            "correct": text if ratio_ok else "",
+            "wrong": "" if ratio_ok else text,
             "ratio": round(ratio, 4),
+            "classification": self.classification_label(has_evidence, ratio_ok),
+            "has_visual_evidence": has_evidence,
+            "evidence": evidence,
         }
 
     def r17_detect_lists_and_headings(self, text: str) -> str:
@@ -306,6 +429,30 @@ class OCRProcessor:
             "body": "\n".join(body),
             "footnotes": "\n".join(footnotes),
         }
+
+    def _uncertainty_flags(self, sep: dict) -> list:
+        """وسوم عدم اليقين وفق الميثاق — تُدرج في البيانات الوصفية دائماً.
+
+        القاعدة: عدم اليقين يجب أن يظهر كوسم صريح، لا كقرار ضمني.
+        بلا ميثاق (v1) تبقى قائمة فارغة حتى لا يتغير أي مخرج قائم.
+        """
+        flags: list = []
+        if not self.charter:
+            return flags
+        uf = self.charter.get("uncertainty_flags") or {}
+        if sep.get("classification") == (
+            self.charter.get("classification_labels") or {}
+        ).get("default_when_no_visual_evidence", "uncertain"):
+            flags.append(uf.get("visual_interpretation", "VISUAL_INTERPRETATION_UNCERTAIN"))
+        params = self.rules.get("R14", {}).get("params", {})
+        ambiguous = set(params.get("ambiguous_markers", [])) | set(
+            self.visual_marker_sets().get("ambiguous", [])
+        )
+        if ambiguous and any(m in (sep.get("evidence") or []) for m in ambiguous):
+            flags.append(uf.get("ambiguous_marker", "AMBIGUOUS_MARKER_NEEDS_CONTEXT"))
+        if self.stats.uncertain_flags:
+            flags.append(uf.get("low_ocr_confidence", "OCR_CONFIDENCE_LOW"))
+        return sorted(set(flags))
 
     # ---------- خط الأنابيب الكامل ----------
     def process_text(
@@ -380,7 +527,13 @@ class OCRProcessor:
             "footnotes_count": self.stats.footnotes,
             "page_numbers_removed": self.stats.pages_dropped,
             "word_ratio": sep["ratio"],
-            "classification": "correct" if sep["correct"] else "wrong",
+            # v2: التصنيف من R16 (يعي الميثاق) مع ارتداد آمن لسلوك v1 الثنائي.
+            "classification": sep.get("classification")
+            or ("correct" if sep["correct"] else "wrong"),
+            "charter_version": self.charter_version,
+            "has_visual_evidence": sep.get("has_visual_evidence", False),
+            "visual_evidence": sep.get("evidence", []),
+            "uncertainty_flags": self._uncertainty_flags(sep),
             "had_diacritics": getattr(self.stats, "diacritics_seen", False),
             "had_arabic_digits": getattr(self.stats, "original_digits", False),
         }
