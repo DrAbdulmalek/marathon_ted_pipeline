@@ -145,3 +145,8 @@ marathon_ted_pipeline/
 - **عقد SLA:** docs/SLA_TEMPLATE.md
 - **خطة التسعير:** docs/PRICING.md
 - **الاستعادة بعد إعادة ضبط البيئة:** ops/recovery/README.md
+
+
+## Telegram incremental source sync
+
+Source ingestion is incremental and idempotent. A persistent SQLite ledger keys each source message by its Telegram channel ID and message ID. Successful messages are never re-added; failed processing is retried. The default initial_sync=latest prevents replaying old history on first deployment. Use from_start only for intentional backfill. Multiple sources are supported through telegram.source_channels, with legacy source_channel compatibility.

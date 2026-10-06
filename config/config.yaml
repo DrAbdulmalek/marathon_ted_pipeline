@@ -12,8 +12,14 @@ ocr:
 
 telegram:
   source_channel: "@source_channel_username"
+  # source_channels:
+  #   - "@source_channel_one"
+  #   - "@source_channel_two"
   target_channel: "@target_channel_username"
   session: "marathon_session"
+  ingestion_state: "data/telegram_ingestion.sqlite3"
+  initial_sync: "latest"
+
 
 translation:
   enabled: true
