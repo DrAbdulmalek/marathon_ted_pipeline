@@ -71,4 +71,7 @@ pytest>=8.0.0
 pytest-asyncio>=0.23.0
 
 # Shared OCR engine (extracted from src/ocr_processor.py — stage 6)
-marathon-ocr-core @ git+https://github.com/DrAbdulmalek/ocr-core.git@v0.4.0
+# v0.6.0: + unified six-stage pipeline (ocr_core.pipeline), selective re-recognition
+# (ocr_core.regional), postprocess.arabic_rtl hook — backward compatible, shim unchanged.
+# NOTE: tag v0.6.0 must exist on GitHub before CI/deploys can resolve this pin.
+marathon-ocr-core @ git+https://github.com/DrAbdulmalek/ocr-core.git@v0.6.0
