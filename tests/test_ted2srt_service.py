@@ -7,13 +7,22 @@ import pytest
 from ted2srt_py import app as service
 
 
-VTT = """WEBVTT
+EN_VTT = """WEBVTT
 
 00:00:00.000 --> 00:00:02.500
 <v Speaker1>Hello <b>world</b>!</v>
 
 00:00:02.500 --> 00:00:04.000
 It&apos;s nice to meet you.
+"""
+
+AR_VTT = """WEBVTT
+
+00:00:00.000 --> 00:00:02.500
+مرحباً بالعالم!
+
+00:00:02.500 --> 00:00:04.000
+سعيد بلقائك.
 """
 
 
@@ -27,7 +36,7 @@ def test_talk_slug_accepts_standard_ted_url():
 
 
 def test_vtt_to_srt_preserves_timing_and_decodes_markup():
-    result = service._to_srt(VTT)
+    result = service._to_srt(EN_VTT)
     assert "1\n00:00:00,000 --> 00:00:02,500\nHello world!" in result
     assert "2\n00:00:02,500 --> 00:00:04,000\nIt's nice to meet you." in result
 
@@ -37,7 +46,8 @@ def test_fetch_returns_bilingual_text_and_uses_slug_endpoint(monkeypatch):
 
     def fake_get(url, **kwargs):
         calls.append(url)
-        response = Mock(status_code=200, text=VTT)
+        body = AR_VTT if "/subtitles/ar/" in url else EN_VTT
+        response = Mock(status_code=200, text=body)
         response.raise_for_status.return_value = None
         return response
 
@@ -50,7 +60,7 @@ def test_fetch_returns_bilingual_text_and_uses_slug_endpoint(monkeypatch):
     assert response.status_code == 200
     data = response.get_json()
     assert data["source_text"] == "Hello world! It's nice to meet you."
-    assert data["target_text"] == data["source_text"]
+    assert data["target_text"] == "مرحباً بالعالم! سعيد بلقائك."
     assert calls == [
         "https://hls.ted.com/talks/a_talk/subtitles/en/full.vtt",
         "https://hls.ted.com/talks/a_talk/subtitles/ar/full.vtt",
@@ -61,7 +71,7 @@ def test_missing_target_language_is_not_mislabeled_as_translation(monkeypatch):
     def fake_get(url, **kwargs):
         if "/subtitles/ar/" in url:
             return Mock(status_code=404, text="")
-        response = Mock(status_code=200, text=VTT)
+        response = Mock(status_code=200, text=EN_VTT)
         response.raise_for_status.return_value = None
         return response
 
