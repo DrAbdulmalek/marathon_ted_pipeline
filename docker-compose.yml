@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: ted2srt
       POSTGRES_USER: ted
-      POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD must be set in .env}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-ted_secret_change_me}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -180,7 +180,7 @@ services:
       - prometheus
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD must be set in .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_INSTALL_PLUGINS: ""
       GF_SERVER_ROOT_URL: "https://marathon.yourdomain.com/grafana"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
