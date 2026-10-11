@@ -1,14 +1,20 @@
-# ted2srt_py/app.py
+"""Local TED subtitle adapter.
+
+Endpoints:
+- POST /fetch {"url": "...", "lang": "ar"} -> English + requested-language text.
+- POST /srt {"url": "...", "lang": "ar"} -> timed SRT for requested language.
+- GET /health -> health check.
+
+Uses TED's VTT subtitle endpoint directly. No numeric talk-ID scraping and no
+third-party API token are required. A missing translation is reported as such;
+it is never replaced with English and labelled Arabic.
 """
-خدمة ted2srt_py — بديل محلي لخدمة ted2srt (Flask):
-- /fetch  POST {url, lang} → نص المحادثة + الترجمة
-- /srt    POST {url, lang} → ملف SRT
-- /health GET
-تعمل على PORT=3002 داخل شبكة compose.
-"""
+from __future__ import annotations
+
+import html
 import logging
-import os
 import re
+from urllib.parse import urlparse
 
 import requests
 from flask import Flask, jsonify, request
@@ -17,30 +23,94 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-
 _UA = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) ted2srt_py/1.0",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) MarathonTEDPipeline/1.1",
 }
-PORT = int(os.getenv("PORT", "3002"))
+TED_VTT = "https://hls.ted.com/talks/{slug}/subtitles/{lang}/full.vtt"
+TIME_RE = re.compile(
+    r"^(?P<start>\d{2}:\d{2}:\d{2}\.\d{3})\s+-->\s+"
+    r"(?P<end>\d{2}:\d{2}:\d{2}\.\d{3})(?:\s+.*)?$"
+)
+TAG_RE = re.compile(r"<[^>]*>")
 
 
-def _talk_id_from_page(url: str):
-    r = requests.get(url, headers=_UA, timeout=45)
-    m = re.search(r"talks/(\d+)(?:\.json)?", r.text)
-    m2 = re.search(r'"id":\s*(\d{4,6})', r.text)
-    return int((m or m2).group(1)) if (m or m2) else None
+def _talk_slug(url: str) -> str:
+    """Validate TED URL and return its talk slug."""
+    parsed = urlparse(url.strip())
+    if parsed.scheme != "https" or parsed.hostname not in {"ted.com", "www.ted.com"}:
+        raise ValueError("url must be an https://www.ted.com/talks/... URL")
+    match = re.fullmatch(r"/talks/([A-Za-z0-9_-]+)(?:\.html)?/?", parsed.path)
+    if not match:
+        raise ValueError("URL does not contain a valid TED talk slug")
+    return match.group(1)
 
 
-def _subtitles(talk_id: int, lang: str):
-    r = requests.get(
-        f"https://hls.ted.com/talks/{talk_id}/subtitles/{lang}/full",
-        headers=_UA, timeout=45,
+def _language_code(value: str) -> str:
+    value = (value or "ar").strip().lower()
+    if not re.fullmatch(r"[a-z]{2,3}(?:-[a-z0-9]{2,8})?", value):
+        raise ValueError("invalid language code")
+    return value
+
+
+def _fetch_vtt(slug: str, lang: str) -> str | None:
+    response = requests.get(
+        TED_VTT.format(slug=slug, lang=lang),
+        headers=_UA,
+        timeout=45,
     )
-    if r.status_code != 200:
+    if response.status_code == 404:
         return None
-    data = r.json()
-    paragraphs = data.get("paragraphs") or data.get("captions") or []
-    return " ".join(p.get("text", "") for p in paragraphs).strip()
+    response.raise_for_status()
+    body = response.text.lstrip("\ufeff")
+    if not body.startswith("WEBVTT"):
+        raise ValueError(f"TED returned a non-WebVTT response for language {lang}")
+    return body
+
+
+def _vtt_cues(raw: str) -> list[tuple[str, str, str]]:
+    """Parse timed VTT cues while preserving cue order and timing."""
+    cues: list[tuple[str, str, str]] = []
+    lines = raw.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        match = TIME_RE.match(line)
+        if not match:
+            i += 1
+            continue
+        start, end = match.group("start", "end")
+        i += 1
+        text_lines = []
+        while i < len(lines) and lines[i].strip():
+            candidate = lines[i].strip()
+            if TIME_RE.match(candidate):
+                break
+            candidate = html.unescape(TAG_RE.sub("", candidate)).strip()
+            if candidate:
+                text_lines.append(candidate)
+            i += 1
+        text = " ".join(text_lines).strip()
+        if text:
+            cues.append((start, end, text))
+    return cues
+
+
+def _to_srt_timestamp(value: str) -> str:
+    return value.replace(".", ",")
+
+
+def _to_srt(raw: str) -> str:
+    blocks = []
+    for index, (start, end, text) in enumerate(_vtt_cues(raw), start=1):
+        blocks.append(
+            f"{index}\n{_to_srt_timestamp(start)} --> "
+            f"{_to_srt_timestamp(end)}\n{text}"
+        )
+    return "\n\n".join(blocks) + ("\n" if blocks else "")
+
+
+def _plain_text(raw: str) -> str:
+    return " ".join(cue[2] for cue in _vtt_cues(raw)).strip()
 
 
 @app.get("/health")
@@ -50,71 +120,73 @@ def health():
 
 @app.post("/fetch")
 def fetch():
-    """جلب نص محادثة TED + ترجمتها الرسمية إن وُجدت."""
-    body = request.get_json(force=True)
-    url = body.get("url", "")
-    lang = body.get("lang", "ar")
-    if "/talks/" not in url:
-        return jsonify(error="رابط TED غير صالح"), 400
+    body = request.get_json(silent=True) or {}
+    try:
+        slug = _talk_slug(str(body.get("url", "")))
+        target_lang = _language_code(str(body.get("lang", "ar")))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
 
-    slug = re.search(r"/talks/([a-z0-9_]+)", url, re.I).group(1)
-    talk_id = _talk_id_from_page(url)
-    if not talk_id:
-        return jsonify(error="تعذر حل رقم المحادثة"), 502
+    try:
+        source_vtt = _fetch_vtt(slug, "en")
+        if not source_vtt:
+            return jsonify(error="No English subtitles available", slug=slug), 404
+        target_vtt = _fetch_vtt(slug, target_lang)
+    except requests.RequestException:
+        logger.exception("TED subtitle request failed for %s", slug)
+        return jsonify(error="TED subtitle service unavailable"), 502
+    except ValueError as exc:
+        logger.warning("Invalid TED subtitle response for %s: %s", slug, exc)
+        return jsonify(error="TED returned an invalid subtitle response"), 502
 
-    source = _subtitles(talk_id, "en") or ""
-    target = _subtitles(talk_id, lang)
-    if not source:
-        return jsonify(error="لا توجد ترجمة إنجليزية"), 404
+    if not target_vtt:
+        return jsonify(
+            error=f"No subtitles available for language '{target_lang}'",
+            slug=slug,
+            source_lang="en",
+            target_lang=target_lang,
+            source_text=_plain_text(source_vtt),
+            target_text=None,
+        ), 404
 
     return jsonify(
-        talk_id=talk_id,
-        title=slug.replace("_", " ").title(),
+        talk_id=slug,
+        title=slug.replace("_", " ").replace("-", " ").title(),
+        url=f"https://www.ted.com/talks/{slug}",
         source_lang="en",
-        source_text=source,
-        target_text=target,
+        target_lang=target_lang,
+        source_text=_plain_text(source_vtt),
+        target_text=_plain_text(target_vtt),
     )
 
 
 @app.post("/srt")
 def srt():
-    """توليد ملف SRT من محادثة TED."""
-    body = request.get_json(force=True)
-    url = body.get("url", "")
-    lang = body.get("lang", "ar")
-    talk_id = _talk_id_from_page(url)
-    if not talk_id:
-        return jsonify(error="تعذر حل رقم المحادثة"), 502
+    body = request.get_json(silent=True) or {}
+    try:
+        slug = _talk_slug(str(body.get("url", "")))
+        lang = _language_code(str(body.get("lang", "ar")))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
 
-    r = requests.get(
-        f"https://hls.ted.com/talks/{talk_id}/subtitles/{lang}/full",
-        headers=_UA, timeout=45,
+    try:
+        raw = _fetch_vtt(slug, lang)
+    except requests.RequestException:
+        logger.exception("TED subtitle request failed for %s/%s", slug, lang)
+        return jsonify(error="TED subtitle service unavailable"), 502
+    except ValueError:
+        return jsonify(error="TED returned an invalid subtitle response"), 502
+
+    if not raw:
+        return jsonify(error=f"No subtitles available for language '{lang}'"), 404
+    return jsonify(
+        talk_id=slug,
+        language=lang,
+        srt=_to_srt(raw),
     )
-    if r.status_code != 200:
-        return jsonify(error="لا توجد ترجمة بهذه اللغة"), 404
-
-    data = r.json()
-    cues = data.get("captions") or data.get("paragraphs") or []
-
-    def _ts(seconds: float) -> str:
-        ms = int(round(seconds * 1000))
-        h, rem = divmod(ms, 3600000)
-        m_, rem = divmod(rem, 60000)
-        s, ms = divmod(rem, 1000)
-        return f"{h:02d}:{m_:02d}:{s:02d},{ms:03d}"
-
-    lines = []
-    for i, cue in enumerate(cues, 1):
-        start = cue.get("startTime", cue.get("start", 0))
-        dur = cue.get("duration", 3000)
-        text = cue.get("text", "")
-        lines.append(str(i))
-        lines.append(f"{_ts(start/1000.0)} --> {_ts((start+dur)/1000.0)}")
-        lines.append(text)
-        lines.append("")
-    srt_text = "\n".join(lines)
-    return jsonify(talk_id=talk_id, srt=srt_text)
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT)
+    import os
+
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "3002")))
