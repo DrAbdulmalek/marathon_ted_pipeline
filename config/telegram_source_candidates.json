@@ -1,0 +1,930 @@
+{
+  "schema_version": "1.0",
+  "purpose": "Candidate registry only. No source is activated or fetched by this file.",
+  "policy": {
+    "default_enabled": false,
+    "historical_backfill": false,
+    "process_only_new_messages_after_explicit_activation": true,
+    "allowed_materials": [
+      "English-Arabic dictionaries and glossaries",
+      "genuinely bilingual English-Arabic books",
+      "orthopaedic and joint surgery references",
+      "closely relevant orthopaedic rehabilitation, rheumatology, anatomy, implants, trauma, arthroplasty, sports orthopaedics, and musculoskeletal terminology",
+      "translation tools and methods directly useful for the user's medical translation workflow"
+    ],
+    "reject": [
+      "monolingual books unless they are directly useful orthopaedic references explicitly requested",
+      "general literature unrelated to medical translation",
+      "non-English-Arabic dictionary pairs",
+      "unrelated medicine/pharmacology content unless it directly supports orthopaedic surgery or translation",
+      "duplicates",
+      "items with unclear provenance or unsupported redistribution rights"
+    ],
+    "preserve_original": true,
+    "store_provenance": true,
+    "quarantine_unverified_license_or_language": true,
+    "no_publication_or_training_export_without_human_approval": true
+  },
+  "entries": [
+    {
+      "id": "tg-001",
+      "name": "المكتبة الطبية الحديثة",
+      "submitted_url": "https://t.me/medicallibrary0",
+      "candidate_username": "medicallibrary0",
+      "category": "medical_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-002",
+      "name": "GLOSSARISSIMO",
+      "submitted_url": "https://t.me/glossarissimo",
+      "candidate_username": "glossarissimo",
+      "category": "translation_dictionary",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "en-ar_dictionary",
+        "medical_translation_if_relevant",
+        "orthopaedic_terms_if_present"
+      ]
+    },
+    {
+      "id": "tg-003",
+      "name": "Syrian Physiotherapy Books",
+      "submitted_url": "https://t.me/Physiotherapy1sy",
+      "candidate_username": "Physiotherapy1sy",
+      "category": "orthopaedic_rehab",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-004",
+      "name": "عالم المعرفة Knowledge World",
+      "submitted_url": "https://t.me/alm_elmaref",
+      "candidate_username": "alm_elmaref",
+      "category": "general_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-005",
+      "name": "Surgery Videos and Books",
+      "submitted_url": "https://t.me/surgery_videoss",
+      "candidate_username": "surgery_videoss",
+      "category": "surgery",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-006",
+      "name": "EDLMedicos",
+      "submitted_url": "https://t.me/ed/medicos",
+      "candidate_username": null,
+      "category": "medical",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-007",
+      "name": "Zaky Ortho Quiz Pro",
+      "submitted_url": "https://t.me/zaky_ortho_quiz_pro",
+      "candidate_username": "zaky_ortho_quiz_pro",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-008",
+      "name": "Antibiotics",
+      "submitted_url": "https://t.me/antibiotics1",
+      "candidate_username": "antibiotics1",
+      "category": "medical_reference",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-009",
+      "name": "ترجمة عملي",
+      "submitted_url": "https://t.me/Targma_amely",
+      "candidate_username": "Targma_amely",
+      "category": "translation",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-010",
+      "name": "محاضرات وكورسات",
+      "submitted_url": "https://t.me/courses_lectures",
+      "candidate_username": "courses_lectures",
+      "category": "general_education",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-011",
+      "name": "تطوير الإنجليزية",
+      "submitted_url": "https://t.me/tatwer1",
+      "candidate_username": "tatwer1",
+      "category": "english_learning",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-012",
+      "name": "English Coffee / English Cafe",
+      "submitted_url": "https://t.me/englishcafe_1",
+      "candidate_username": "englishcafe_1",
+      "category": "english_learning",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-013",
+      "name": "Medical Magazine | مجلة الطب",
+      "submitted_url": "https://t.me/medical7magazine",
+      "candidate_username": "medical7magazine",
+      "category": "medical",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-014",
+      "name": "Medicine Books",
+      "submitted_url": "https://t.me/medallbooks",
+      "candidate_username": "medallbooks",
+      "category": "medical_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-015",
+      "name": "Golden Dictionary",
+      "submitted_url": "https://t.me/GoldenDictionary",
+      "candidate_username": "GoldenDictionary",
+      "category": "dictionary",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "en-ar_dictionary",
+        "medical_translation_if_relevant",
+        "orthopaedic_terms_if_present"
+      ]
+    },
+    {
+      "id": "tg-016",
+      "name": "Angalizy - عنجليزي",
+      "submitted_url": "https://t.me/Angalizy1",
+      "candidate_username": "Angalizy1",
+      "category": "english_learning",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-017",
+      "name": "Naser's Medical Education",
+      "submitted_url": "https://t.me/NaserMedical Education",
+      "candidate_username": null,
+      "category": "medical_education",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-018",
+      "name": "Orthopaedic",
+      "submitted_url": "https://t.me/ortho",
+      "candidate_username": "ortho",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-019",
+      "name": "Trans Lingua Careers",
+      "submitted_url": "https://t.me/TransLinguaCareers",
+      "candidate_username": "TransLinguaCareers",
+      "category": "translation",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-020",
+      "name": "خزانة الكتب / Free books pdf",
+      "submitted_url": "https://t.me/pdfxbookx",
+      "candidate_username": "pdfxbookx",
+      "category": "general_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-021",
+      "name": "Golden Dictionary Collection",
+      "submitted_url": "https://t.me/goldendictionaryCollections",
+      "candidate_username": "goldendictionaryCollections",
+      "category": "dictionary",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "en-ar_dictionary",
+        "medical_translation_if_relevant",
+        "orthopaedic_terms_if_present"
+      ]
+    },
+    {
+      "id": "tg-022",
+      "name": "Kabbani Books",
+      "submitted_url": "https://t.me/kabbanibooks",
+      "candidate_username": "kabbanibooks",
+      "category": "general_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-023",
+      "name": "مكتبة المليون كتاب",
+      "submitted_url": "https://t.me/lovekotob",
+      "candidate_username": "lovekotob",
+      "category": "general_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-024",
+      "name": "DictTango Dictionary Collection",
+      "submitted_url": "https://t.me/DictTangoCollection",
+      "candidate_username": "DictTangoCollection",
+      "category": "dictionary",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "en-ar_dictionary",
+        "medical_translation_if_relevant",
+        "orthopaedic_terms_if_present"
+      ]
+    },
+    {
+      "id": "tg-025",
+      "name": "تقارير عربية Arabic Reports",
+      "submitted_url": "https://t.me/ArabicReports",
+      "candidate_username": "ArabicReports",
+      "category": "general_reference",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-026",
+      "name": "Ziad Farid - Grammar and vocb.",
+      "submitted_url": "https://t.me/hghkgjghg",
+      "candidate_username": "hghkgjghg",
+      "category": "english_learning",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-027",
+      "name": "Zaky Ortho Videos & Podcasts",
+      "submitted_url": "https://t.me/zaky_ortho_videos",
+      "candidate_username": "zaky_ortho_videos",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-028",
+      "name": "اللغة العربية - جامعة حمص",
+      "submitted_url": "https://t.me/AdabHoms",
+      "candidate_username": "AdabHoms",
+      "category": "arabic_language",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-029",
+      "name": "دليل المترجم",
+      "submitted_url": "https://t.me/translatorguide1",
+      "candidate_username": "translatorguide1",
+      "category": "translation",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-030",
+      "name": "MDict - BlueDict Dictionary",
+      "submitted_url": "https://t.me/MDict_Dictionary",
+      "candidate_username": "MDict_Dictionary",
+      "category": "dictionary",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "en-ar_dictionary",
+        "medical_translation_if_relevant",
+        "orthopaedic_terms_if_present"
+      ]
+    },
+    {
+      "id": "tg-031",
+      "name": "All eBook Stores",
+      "submitted_url": "https://t.me/AESbookstore",
+      "candidate_username": "AESbookstore",
+      "category": "general_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-032",
+      "name": "Learn English",
+      "submitted_url": "https://t.me/MyEnglishChannel",
+      "candidate_username": "MyEnglishChannel",
+      "category": "english_learning",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-033",
+      "name": "DRAGOMANTI فن الترجمة",
+      "submitted_url": "https://t.me/dragoman11",
+      "candidate_username": "dragoman11",
+      "category": "translation",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-034",
+      "name": "ركن ترجمة كتب",
+      "submitted_url": "https://t.me/xesarth",
+      "candidate_username": "xesarth",
+      "category": "bilingual_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-035",
+      "name": "الفهرس العربي لأدبيات علم الترجمة",
+      "submitted_url": "https://t.me/Arbib4ts",
+      "candidate_username": "Arbib4ts",
+      "category": "translation_research",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-036",
+      "name": "SafilinguaLIB",
+      "submitted_url": "https://t.me/safilingualib",
+      "candidate_username": "safilingualib",
+      "category": "translation_resources",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-037",
+      "name": "Easy Pharmacology",
+      "submitted_url": "https://t.me/Pharma Topguide",
+      "candidate_username": null,
+      "category": "pharmacology",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-038",
+      "name": "المكتبة الالكترونية العلمية - علوم الحياة",
+      "submitted_url": "https://t.me/biology898",
+      "candidate_username": "biology898",
+      "category": "life_sciences",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-039",
+      "name": "مكتبة لسان بغداد للترجمة",
+      "submitted_url": "https://t.me/lsanbaghdad",
+      "candidate_username": "lsanbaghdad",
+      "category": "translation",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-040",
+      "name": "Free Courses & Scholarships",
+      "submitted_url": "https://t.me/scholarships4is",
+      "candidate_username": "scholarships4is",
+      "category": "general_education",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-041",
+      "name": "ORTHOVIVA",
+      "submitted_url": "https://t.me/orthoviva",
+      "candidate_username": "orthoviva",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-042",
+      "name": "SVU.ITE.ENGLISH.2022/2023",
+      "submitted_url": "https://t.me/Svu_learning_English",
+      "candidate_username": "Svu_learning_English",
+      "category": "english_learning",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-043",
+      "name": "All Dictionaries",
+      "submitted_url": "https://t.me/alldictionaries",
+      "candidate_username": "alldictionaries",
+      "category": "dictionary",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "en-ar_dictionary",
+        "medical_translation_if_relevant",
+        "orthopaedic_terms_if_present"
+      ]
+    },
+    {
+      "id": "tg-044",
+      "name": "الموسوعة الطبية",
+      "submitted_url": "https://t.me/tatwer11",
+      "candidate_username": "tatwer11",
+      "category": "medical",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-045",
+      "name": "ORTHOBOX",
+      "submitted_url": "https://t.me/OrthoBOX",
+      "candidate_username": "OrthoBOX",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-046",
+      "name": "Translation Police | شرطة الترجمة",
+      "submitted_url": "https://t.me/translationpolice",
+      "candidate_username": "translationpolice",
+      "category": "translation",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-047",
+      "name": "دهاليز الترجمة",
+      "submitted_url": "https://t.me/translationve",
+      "candidate_username": "translationve",
+      "category": "translation",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-048",
+      "name": "مقهى المترجم",
+      "submitted_url": "https://t.me/TransSkylanguagesolutions",
+      "candidate_username": "TransSkylanguagesolutions",
+      "category": "translation",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-049",
+      "name": "Orthopaedics HUBs",
+      "submitted_url": "https://t.me/OrthopaedicsHUBs",
+      "candidate_username": "OrthopaedicsHUBs",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-050",
+      "name": "طالب صيدلاني - Pharmacist",
+      "submitted_url": "https://t.me/Pharma Yemen",
+      "candidate_username": null,
+      "category": "pharmacology",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-051",
+      "name": "Zaky Ortho",
+      "submitted_url": "https://t.me/dr_zaky_ortho",
+      "candidate_username": "dr_zaky_ortho",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-052",
+      "name": "Zaky Ortho Files",
+      "submitted_url": "https://t.me/zaky_ortho_files",
+      "candidate_username": "zaky_ortho_files",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-053",
+      "name": "ملخصات عالم العلم والأدب",
+      "submitted_url": "https://t.me/minibookpdf",
+      "candidate_username": "minibookpdf",
+      "category": "general_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-054",
+      "name": "Home of CAT tools",
+      "submitted_url": "https://t.me/home_of_cat_tools",
+      "candidate_username": "home_of_cat_tools",
+      "category": "cat_tools",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-055",
+      "name": "الفارما",
+      "submitted_url": "https://t.me/pharma9600",
+      "candidate_username": "pharma9600",
+      "category": "pharmacology",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-056",
+      "name": "دراسات وابحاث علمية وطبية",
+      "submitted_url": "https://t.me/MedicineStudy",
+      "candidate_username": "MedicineStudy",
+      "category": "medical_research",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-057",
+      "name": "شبكة التعليم الشامل الطبية",
+      "submitted_url": "https://t.me/Iraq_ed",
+      "candidate_username": "Iraq_ed",
+      "category": "medical_education",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-058",
+      "name": "CAT Tools Store",
+      "submitted_url": "https://t.me/cattoolsstore",
+      "candidate_username": "cattoolsstore",
+      "category": "cat_tools",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "translation_methodology_tools",
+        "en-ar_dictionary_if_found",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-059",
+      "name": "ORTHOTALK",
+      "submitted_url": "https://t.me/OrthoTalk",
+      "candidate_username": "OrthoTalk",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-060",
+      "name": "Free Courses & Books",
+      "submitted_url": "https://t.me/Coursat2020",
+      "candidate_username": "Coursat2020",
+      "category": "general_education",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-061",
+      "name": "Medical Books",
+      "submitted_url": "https://t.me/medustudy_shop",
+      "candidate_username": "medustudy_shop",
+      "category": "medical_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-062",
+      "name": "orthopedic books",
+      "submitted_url": "https://t.me/orthopedic_book",
+      "candidate_username": "orthopedic_book",
+      "category": "orthopaedic_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-063",
+      "name": "Orthopedic courses",
+      "submitted_url": "https://t.me/orthopaedic_courses",
+      "candidate_username": "orthopaedic_courses",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-064",
+      "name": "Medical Books 2026",
+      "submitted_url": "https://t.me/medical_ebook_pdfs",
+      "candidate_username": "medical_ebook_pdfs",
+      "category": "medical_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "medical_reference",
+        "orthopaedic_joint_surgery_if_relevant",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-065",
+      "name": "Rheumatology Books",
+      "submitted_url": "https://t.me/rheumatology_books",
+      "candidate_username": "rheumatology_books",
+      "category": "rheumatology",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-066",
+      "name": "كتب حصرية",
+      "submitted_url": "https://t.me/ktb7sria",
+      "candidate_username": "ktb7sria",
+      "category": "general_books",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "screen_for_en_ar_dictionaries_or_bilingual_medical_books_only"
+      ]
+    },
+    {
+      "id": "tg-067",
+      "name": "ORTHOFILES",
+      "submitted_url": "https://t.me/OrthoFileS",
+      "candidate_username": "OrthoFileS",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    },
+    {
+      "id": "tg-068",
+      "name": "ORTHOPOLLS",
+      "submitted_url": "https://t.me/OrthoPoLLs",
+      "candidate_username": "OrthoPoLLs",
+      "category": "orthopaedics",
+      "status": "UNVERIFIED_CANDIDATE",
+      "enabled": false,
+      "scope": [
+        "orthopaedic_joint_surgery",
+        "bilingual_book_only_if_en_ar"
+      ]
+    }
+  ]
+}
