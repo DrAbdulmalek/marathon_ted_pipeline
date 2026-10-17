@@ -16,54 +16,97 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'production' }}
+    permissions:
+      contents: read      # أقل صلاحية ممكنة (كانت الصلاحيات الافتراضية الأوسع)
+      packages: read
 
     steps:
       - uses: actions/checkout@v4
 
+      # ── لماذا env بدل ${{ secrets.* }} داخل run؟ ──────────────────────────
+      # `${{ }}` يُستبدل نصيًّا **قبل** تنفيذ الصدفة. أي قيمة تحتوي أسطرًا أو
+      # علامات اقتباس أو أحرف خاصة تكسر السكربت أو تتيح حقن أوامر.
+      # مفتاح SSH الخاص متعدد الأسطر بطبيعته، لذا كانت الخطوة السابقة
+      #   echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+      # تُنتج سكربتًا معطوبًا (وتُسقط بقية الأسطر كأوامر) أو تفشل بصمت.
+      # القاعدة: الأسرار تمر عبر env فقط، ولا تُحقن نصيًّا في run أبدًا.
       - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          set -euo pipefail
+          : "${SSH_PRIVATE_KEY:?SSH_PRIVATE_KEY is not set}"
+          : "${SSH_HOST:?SSH_HOST is not set}"
+          KEY_FILE="$(mktemp)"
+          echo "$KEY_FILE" > /tmp/deploy_key_path
+          # printf '%s\n' يحفظ الأسطر المتعددة كما هي دون تفسير
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Deploy via SSH
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            set -e
-            cd /opt/marathon
+          set -euo pipefail
+          KEY_FILE="$(cat /tmp/deploy_key_path)"
+          # القيم متعددة الأسطر/الحساسة تُنقل base64 حتى يستحيل كسر السكربت
+          # البعيد أو حقن أوامر فيه، ثم تُفكّك في بيئة بعيدة معزولة.
+          PREAMBLE="GH_TOKEN_B64='$(printf '%s' "$GH_TOKEN" | base64 -w0)'"$'\n'
+          PREAMBLE+="GH_ACTOR_B64='$(printf '%s' "$GH_ACTOR" | base64 -w0)'"$'\n'
+          PREAMBLE+="GH_REPO_B64='$(printf '%s' "$GH_REPO" | base64 -w0)'"$'\n'
+          # ضمان حذف المفتاح محليًّا عند أي خروج (نجاحًا أو فشلًا)
+          trap 'shred -u "$KEY_FILE" 2>/dev/null || rm -f "$KEY_FILE"; rm -f /tmp/deploy_key_path' EXIT
 
-            echo "📥 جلب آخر التحديثات..."
-            git fetch --all
-            git reset --hard origin/main
+          { printf '%s' "$PREAMBLE"; cat <<'REMOTE'
+          set -e
+          GH_TOKEN="$(printf '%s' "$GH_TOKEN_B64" | base64 -d)"
+          GH_ACTOR="$(printf '%s' "$GH_ACTOR_B64" | base64 -d)"
+          GH_REPO="$(printf '%s' "$GH_REPO_B64" | base64 -d)"
+          unset GH_TOKEN_B64 GH_ACTOR_B64 GH_REPO_B64
 
-            echo "🐳 سحب الصورة الجديدة..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | \
-              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "📥 جلب آخر التحديثات..."
+          cd /opt/marathon
+          git fetch --all
+          git reset --hard origin/main
 
-            docker pull ghcr.io/${{ github.repository }}:latest
+          echo "🐳 سحب الصورة الجديدة..."
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+          docker pull "ghcr.io/${GH_REPO}:latest"
+          docker logout ghcr.io >/dev/null 2>&1 || true
 
-            echo "🔄 إعادة التشغيل..."
-            docker compose pull
-            docker compose up -d --remove-orphans
+          echo "🔄 إعادة التشغيل..."
+          docker compose pull
+          docker compose up -d --remove-orphans
 
-            echo "🧹 تنظيف..."
-            docker image prune -f
+          echo "🧹 تنظيف..."
+          docker image prune -f
 
-            echo "✅ التحقق..."
-            sleep 10
-            docker compose ps
-          EOF
+          echo "✅ التحقق..."
+          sleep 10
+          docker compose ps
+          REMOTE
+          } | ssh -i "$KEY_FILE" -o StrictHostKeyChecking=yes -o BatchMode=yes \
+                "${SSH_USER}@${SSH_HOST}" 'bash -s'
 
       - name: Verify deployment
+        env:
+          DOMAIN: ${{ secrets.DOMAIN }}
         run: |
+          set -euo pipefail
+          : "${DOMAIN:?DOMAIN is not set}"
           sleep 20
-          curl -f https://${{ secrets.DOMAIN }}/api/health || exit 1
+          curl -fsS --max-time 30 "https://${DOMAIN}/api/health"
 
       - name: Notify on failure
         if: failure()
-        uses: appleboy/telegram-action@master
+        uses: appleboy/telegram-action@v1.1.1   # كان @master: مرجع متحوّل = خطر سلسلة توريد
         with:
           to: ${{ secrets.TELEGRAM_ALERT_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}

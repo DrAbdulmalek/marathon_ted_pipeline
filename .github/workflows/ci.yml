@@ -57,7 +57,10 @@ jobs:
           # الافتراضية بين الإصدارات، فكان نفس الكود أخضر في يوم وأحمر في آخر.
           # (مقياس 2026-10-03: ruff 0.16.10 على `ruff check src/ tests/` بلا
           #  --select = 361 خطأ؛ وبـ --select E9,F63,F7,F82 = صفر.)
-          pip install pytest pytest-asyncio pytest-cov "ruff==0.16.10" "mypy==1.18.2"
+          # types-* : بدونهما يُنتج mypy ثمانية أخطاء import-untyped وهمية
+          # (yaml/requests) تحجب العدد الحقيقي لأخطاء الأنواع.
+          pip install pytest pytest-asyncio pytest-cov "ruff==0.16.10" "mypy==1.18.2" \
+            types-PyYAML types-requests
 
       - name: Lint with ruff (critical rules — blocking)
         # E9 = أخطاء صياغة/تنفيذ، F63 = مقارنات خاطئة، F7 = أخطاء تركيبية،
@@ -77,13 +80,29 @@ jobs:
         run: |
           set -uo pipefail
           BASELINE_FILE=".github/mypy-baseline.txt"
-          mypy src/ --ignore-missing-imports --no-strict-optional > mypy-report.txt 2>&1 || true
+          mypy src/ --ignore-missing-imports --no-strict-optional > mypy-report.txt 2>&1
+          MYPY_EXIT=$?
           cat mypy-report.txt
+
+          # exit 2 = فشل قاتل (خطأ تركيب/تعليق أنواع غير صالح). كان هذا يُحتسب
+          # خطأً واحدًا فيبدو وكأن الأنواع تحسّنت من 25 إلى 1 — أخضر كاذب.
+          # حدث فعلًا: `# type: pdf|epub` في src/metrics.py أسقط الفحص كله.
+          if [ "$MYPY_EXIT" -eq 2 ] || grep -q "errors prevented further checking" mypy-report.txt; then
+            echo "::error::mypy could not complete a full pass (exit $MYPY_EXIT). Fix the fatal syntax/type-comment error first — a crashed run must not count as an improvement."
+            exit 1
+          fi
+
           COUNT=$(grep -cE "^src/.*: error:" mypy-report.txt || true)
+          STUBS=$(grep -c "Library stubs not installed" mypy-report.txt || true)
+          if [ "$STUBS" -gt 0 ]; then
+            echo "::error::$STUBS missing type-stub errors. Add the matching types-* package to the install step; do not absorb them into the baseline."
+            exit 1
+          fi
+
           BASELINE=$(cat "$BASELINE_FILE" 2>/dev/null || echo 0)
           echo "mypy errors: $COUNT (baseline: $BASELINE)"
           if [ "$COUNT" -gt "$BASELINE" ]; then
-            echo "::error::mypy regressions: $COUNT > baseline $BASELINE. Fix them, or lower the baseline deliberately in $BASELINE_FILE."
+            echo "::error::mypy regressions: $COUNT > baseline $BASELINE. Fix them, or raise the baseline deliberately in $BASELINE_FILE with a justification."
             exit 1
           fi
           if [ "$COUNT" -lt "$BASELINE" ]; then
@@ -104,8 +123,47 @@ jobs:
           file: ./coverage.xml
           fail_ci_if_error: false
 
+  dependency-audit:
+    # كان الفحص الأمني يعمل **بعد** نشر الصورة إلى GHCR، وعلى push إلى main فقط:
+    # أي أن الثغرة الحرجة تُكتشف بعد أن تصبح الصورة منشورة، ولا تُفحص PRs إطلاقاً.
+    # هذه المهمة تفحص التبعيات والملفات **قبل** النشر وعلى كل pull_request.
+    name: Dependency audit (pre-publish, runs on PRs)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # مطلوب لرفع SARIF
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan (deps + Dockerfile + misconfig)
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          # يبقى استشارياً (0) حتى تُصفّى المتراكمات الحالية؛ عندها يُقلب إلى 1
+          # ليصبح بوابة دمج فعلية. لا تُترك القيمة 0 إلى الأبد.
+          exit-code: 0
+
+      - name: Upload dependency-audit SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-dependency-audit
+          check_name: TrivyDependencyAudit
+
+      - name: Summary (human-readable)
+        if: always()
+        run: |
+          pip install --quiet trivy-python 2>/dev/null || true
+          echo "### Dependency audit" >> "$GITHUB_STEP_SUMMARY"
+          echo "Results uploaded to the Security tab (category: trivy-dependency-audit)." >> "$GITHUB_STEP_SUMMARY"
+
   build-and-push:
-    needs: lint-and-test
+    needs: [lint-and-test, dependency-audit]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -160,14 +218,17 @@ jobs:
         run: echo "IMAGE_REF_LC=ghcr.io/${GITHUB_REPOSITORY,,}:latest" >> "$GITHUB_ENV"
 
       - name: Run Trivy scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.36.0   # was @master: mutable ref = supply-chain risk
         with:
           image-ref: ${{ env.IMAGE_REF_LC }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
 
-      - name: Upload SARIF
+      - name: Upload SARIF (post-publish image scan)
+        if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
+          category: trivy-image-post-publish
+          check_name: TrivyImagePostPublish

@@ -41,7 +41,7 @@ HTTP_DURATION = Histogram(
 FILES_PROCESSED = Counter(
     "marathon_files_processed_total",
     "عدد الملفات المعالجة",
-    ["type", "status"],     # type: pdf|epub, status: success|failed
+    ["type", "status"],     # القيم: type = pdf|epub ، status = success|failed
 )
 
 # مدة معالجة الملفات
