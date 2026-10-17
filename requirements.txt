@@ -74,4 +74,9 @@ pytest-asyncio>=0.23.0
 # v0.6.0: + unified six-stage pipeline (ocr_core.pipeline), selective re-recognition
 # (ocr_core.regional), postprocess.arabic_rtl hook — backward compatible, shim unchanged.
 # NOTE: tag v0.6.0 must exist on GitHub before CI/deploys can resolve this pin.
-marathon-ocr-core @ git+https://github.com/DrAbdulmalek/ocr-core.git@v0.6.0
+# TEMP (upgrade draft): pinned to PR ocr-core#58 head 3996e47 (visual-evidence gate,
+# 9-key schema) so the full marathon suite runs against the CANDIDATE engine.
+# FINAL pin must be the v0.7.0 tag AFTER ocr-core#58 merge + OWNER-approved tag —
+# swap this line back to @v0.7.0 before this PR leaves draft. See
+# docs/audits/PR58-VERIFY-ROUND3/ROUND4/ROUND5 in tg-campaign-toolkit.
+marathon-ocr-core @ git+https://github.com/DrAbdulmalek/ocr-core.git@3996e47726829a396bb3e3010bce693f4381659a
