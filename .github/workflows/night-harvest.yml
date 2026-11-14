@@ -1,0 +1,47 @@
+# حصاد الليل — فحص يومي مجدول لمسار marathon_ted_pipeline + نقطة glossary-api
+# الفكرة 2 من خطة التطوير: CI كمنتج — سلسلة 30 يوماً بلا تدخل بشري + إنذار فوري عند أي تدهور.
+# التركيب: انسخ هذا الملف إلى .github/workflows/night-harvest.yml في marathon_ted_pipeline
+name: night-harvest
+on:
+  schedule:
+    - cron: "0 2 * * *"   # يومياً 02:00 UTC — بعد الظهر بوقت كافٍ عن نشاط الصباح
+  workflow_dispatch: {}
+permissions:
+  contents: write          # لتحديث ملفات status والسلسلة
+  issues: write            # لفتح إنذار عند الفشل
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: تثبيت اعتماديات الفحص
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: تنفيذ الحصاد
+        id: harvest
+        continue-on-error: true
+        run: |
+          python night_harvest/night_harvest.py --init 2>/dev/null || true
+          python night_harvest/night_harvest.py
+      - name: رفع ملفات الحالة (status + streak)
+        run: |
+          git config user.name "night-harvest[bot]"
+          git config user.email "actions@users.noreply.github.com"
+          git add night_harvest/status/*.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "harvest: تحديث يومي (${{ steps.harvest.outcome }})"
+          git push
+      - name: إنذار — فتح Issue عند الفشل أو التدهور
+        if: steps.harvest.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ALERT=$(cat night_harvest/status/alert-*.md 2>/dev/null | head -60 || echo "فشل غير موثق")
+          gh issue create \
+            --title "🌙 حصاد الليل فشل — انقطعت السلسلة (${{ github.run_id }})" \
+            --body "$ALERT" || true
+# بادج السلسلة — أضف إلى README.md في marathon_ted_pipeline:
+# ![حصاد الليل](https://img.shields.io/badge/dynamic/json?url=<RAW-URL-لملف-streak.json>&query=$.streak&label=%D8%AD%D8%B5%D8%A7%D8%AF%20%D8%A7%D9%84%D9%84%D9%8A%D9%84&suffix=%20%D9%8A%D9%88%D9%85%D8%A7%D9%8B&color=blueviolet)
+# حيث RAW-URL = https://raw.githubusercontent.com/DrAbdulmalek/marathon_ted_pipeline/main/night_harvest/status/streak.json
