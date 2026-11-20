@@ -24,7 +24,12 @@ st.set_page_config(
 )
 
 # ---------- التهيئة ----------
-CONFIG_PATH = "config/config.yaml"
+# dashboard.py في جذر المستودع → parent واحدة تصل الجذر (لا parent.parent كباقي src/*)
+# تجاوز النشر: متغير البيئة MARATHON_CONFIG
+CONFIG_PATH = Path(
+    os.getenv("MARATHON_CONFIG")
+    or Path(__file__).resolve().parent / "config" / "config.yaml"
+)
 with open(CONFIG_PATH, encoding="utf-8") as f:
     CONFIG = yaml.safe_load(f)
 
