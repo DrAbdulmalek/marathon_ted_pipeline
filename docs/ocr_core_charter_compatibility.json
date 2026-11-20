@@ -1,0 +1,37 @@
+{
+  "purpose": "Machine-readable compatibility manifest: which ocr-core releases implement the visual-evidence gate required by config/marathon_ocr_rules.yaml (rule R16).",
+  "generated_from": "git tags of github.com/DrAbdulmalek/ocr-core (engine source inspection)",
+  "gate_rule": "R16.params.require_visual_evidence",
+  "releases": {
+    "v0.1.0": {
+      "sha": "6bf75a1a1c3b6d4c1461723129ca0b7c0d55a27e",
+      "engine_implements_visual_evidence_gate": false,
+      "config_default_require_visual_evidence": false
+    },
+    "v0.2.0": {
+      "sha": "76d586322a5fdc4075f2b9f916e9e0925ec0c5b8",
+      "engine_implements_visual_evidence_gate": false,
+      "config_default_require_visual_evidence": false
+    },
+    "v0.3.0": {
+      "sha": "1f5280ab7a903605219587cce0f93f48bdc2cc48",
+      "engine_implements_visual_evidence_gate": false,
+      "config_default_require_visual_evidence": false
+    },
+    "v0.4.0": {
+      "sha": "20eeae7ab4a0d7c799ab649dd4c90c6b2aa4b8b5",
+      "engine_implements_visual_evidence_gate": false,
+      "config_default_require_visual_evidence": false
+    },
+    "v0.5.0": {
+      "sha": "5613a1c05f7b657678a810b96c6ba5cab3b92e53",
+      "engine_implements_visual_evidence_gate": false,
+      "config_default_require_visual_evidence": false
+    },
+    "v0.6.0": {
+      "sha": "b0eff8387487cdef487ac733515a9b472df63375",
+      "engine_implements_visual_evidence_gate": false,
+      "config_default_require_visual_evidence": false
+    }
+  }
+}
