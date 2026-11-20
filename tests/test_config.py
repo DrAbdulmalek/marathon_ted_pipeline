@@ -43,20 +43,67 @@ def test_ocr_rules_categories_covered():
     assert {"cleanup", "substitution", "structure", "separation"} <= categories
 
 
-def test_languages_yaml_has_10_languages():
+# ملاحظة تدقيق (2026-10-03): كان هذا الاختبار يثبّت 10 لغات **بلا en** —
+# أي أن غياب الإنجليزية كان قراراً مقصوداً ومُختبَراً (اسم الاختبار القديم:
+# test_arabic_is_rtl_english_not_in_list). المراجعة نقضت القرار: en لغة المصدر
+# في مسار TED، وغيابها يجعل /translate يرفض src="en" صراحةً ويجعل
+# MultiLangTranslator يرفع ValueError. أُضيفت en بـ source_only: true وبلا
+# نموذج marian، وحُدِّث العدّ إلى 11. هذا تغيير عقد مقصود، لا كسر عرضي.
+def test_languages_yaml_has_11_languages_including_english():
     with open(ROOT / "config/languages.yaml", encoding="utf-8") as f:
         data = yaml.safe_load(f)
     langs = data["languages"]
-    assert len(langs) == 10
+    assert len(langs) == 11
     assert "ar" in langs
+    assert "en" in langs, "لغة المصدر مفقودة من السجل"
     for code, info in langs.items():
         assert "name" in info and "rtl" in info and "models" in info
 
 
-def test_arabic_is_rtl_english_not_in_list():
+def test_english_is_source_only_without_marian_model():
+    """en لغة مصدر: لا نموذج marian لها، وإلا حُمّل نموذج غير موجود."""
     with open(ROOT / "config/languages.yaml", encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    assert data["languages"]["ar"]["rtl"] is True
+    en = data["languages"]["en"]
+    assert en["source_only"] is True
+    assert en["rtl"] is False
+    assert "marian" not in en["models"]
+
+
+def test_arabic_is_rtl_and_has_marian_model():
+    with open(ROOT / "config/languages.yaml", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    ar = data["languages"]["ar"]
+    assert ar["rtl"] is True
+    assert "marian" in ar["models"]
+
+
+def test_registry_resolves_config_from_any_cwd(tmp_path, monkeypatch):
+    """CONFIG_PATH يجب أن يكون مطلقاً — السبب الأول لإصلاح languages.py."""
+    import os
+    from src.languages import LanguageRegistry
+
+    monkeypatch.chdir(tmp_path)          # CWD غريب تماماً
+    monkeypatch.delenv("LANGUAGES_FILE", raising=False)
+    reg = LanguageRegistry()
+    assert "ar" in reg.list_all() and "en" in reg.list_all()
+    assert os.path.isabs(str(reg.path)), "المسار ما زال نسبياً"
+
+
+def test_registry_honours_languages_file_env(tmp_path, monkeypatch):
+    """LANGUAGES_FILE يتجاوز المسار الافتراضي (للاختبار وللتوزيعات المخصصة)."""
+    from src.languages import LanguageRegistry
+
+    custom = tmp_path / "custom_langs.yaml"
+    custom.write_text(
+        "languages:\n  zz:\n    name: Zed\n    name_en: Zed\n    rtl: false\n"
+        "    models:\n      google: zz\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LANGUAGES_FILE", str(custom))
+    reg = LanguageRegistry()
+    assert reg.list_all() == ["zz"]
+    assert reg.is_source_only("zz") is False
 
 
 def test_gitignore_and_env_example_exist():

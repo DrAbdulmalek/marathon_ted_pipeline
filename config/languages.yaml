@@ -1,4 +1,19 @@
 languages:
+  # الإنجليزية لغة **مصدر** في هذا المشروع: TED يُنتج en، والترجمة تذهب منها
+  # إلى باقي اللغات. لذلك هي في السجل (حتى يقبلها /translate كـ src وحتى تظهر
+  # في /languages) لكنها لا تحمل نموذج marian — لا يوجدopus-mt لإنشاء الإنجليزية
+  # من العربية في مسار هذا المشروع، وأي محاولة كانت سترفع ValueError.
+  # source_only: true تميّزها صراحةً بدل الاعتماد على غياب مفتاح marian.
+  en:
+    name: "English"
+    name_en: "English"
+    rtl: false
+    source_only: true
+    models:
+      google: "en"
+      deepl: "EN"
+      nllb: "eng_Latn"
+      # marian: غير مقصود — راجع source_only أعلاه
   ar:
     name: "العربية"
     name_en: "Arabic"
