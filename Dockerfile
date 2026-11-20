@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-eng \
     ffmpeg \
     libpq5 \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------- اعتماديات بايثون ----------
