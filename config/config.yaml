@@ -12,8 +12,14 @@ ocr:
 
 telegram:
   source_channel: "@source_channel_username"
+  # source_channels:
+  #   - "@source_channel_one"
+  #   - "@source_channel_two"
   target_channel: "@target_channel_username"
   session: "marathon_session"
+  ingestion_state: "data/telegram_ingestion.sqlite3"
+  initial_sync: "latest"
+
 
 translation:
   enabled: true
@@ -51,4 +57,5 @@ asr:
     model_path: "/models/vosk-en"
   languages:
     auto_detect: true
-    supported: ["en", "ar", "fr", "es", "de", "tr", "ru", "zh"]
+    # supported: حُذفت — كانت قائمة ميتة (لا قارئ لها) وتضاربت مع
+    # المصدر الوحيد للغات: config/languages.yaml (11 لغة)

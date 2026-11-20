@@ -2,11 +2,23 @@ import os
 import json
 import hmac
 import hashlib
+import tempfile
 from pathlib import Path
 
 import pytest
 
-os.environ["WEBHOOK_DB"] = "data/test_webhooks.db"
+# كان هذا السطر `os.environ["WEBHOOK_DB"] = "data/test_webhooks.db"` — أي مسار
+# **داخل المستودع ومتتبَّع في git**. ونتيجته أن `import src.webhooks` في السطر
+# التالي كان يكتب في ذلك الملف عند كل تشغيل اختبار، فيلوّث شجرة العمل
+# (git status يظهر `M data/test_webhooks.db`) ويبني artifact ثنائياً في git.
+#
+# الإصلاح: setdefault (حتى يبقى عزل conftest.py هو الفائز) + مسار في مجلد
+# مؤقت خارج المستودع. السلوك الاختباري لا يتغير: الـ fixture أدناه يعيد توجيه
+# WEBHOOK_DB إلى tmp_path ويعيد تحميل الوحدة لكل اختبار على أي حال.
+os.environ.setdefault(
+    "WEBHOOK_DB",
+    str(Path(tempfile.gettempdir()) / "marathon_webhooks_import_probe.db"),
+)
 
 import importlib
 import src.webhooks as wh
