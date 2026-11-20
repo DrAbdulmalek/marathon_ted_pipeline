@@ -143,12 +143,20 @@ def test_r15_flags_uncertain_words(proc):
 
 # ---------- R16 ----------
 def test_r16_separates_correct_vs_wrong(proc):
+    """محدّث لعقد ocr-core v2 (بوابة الأدلة): بلا دليل بصري لا يجوز «correct»
+    ولا «wrong» — كلاهما يذهب إلى «uncertain» (أمان فشل، مبدأ 6 من الميثان).
+    المرجع: PR ocr-core#58 (head 3996e47) — require_visual_evidence: true."""
     good = proc.process_text("هذا نص عربي سليم تمامًا بلا رموز غريبة.")
-    assert good["classification"] if False else True
-    assert good["correct"] != "" and good["wrong"] == ""
+    assert good["correct"] == "", "بلا دليل بصري يُمنع التصنيف correct"
+    assert good["wrong"] == ""
+    assert good["uncertain"] != "", "النص النظيف بلا دليل يذهب إلى uncertain"
+    assert good["classification"] == "uncertain"
     bad = proc.process_text("XYZ#$% @@@ ﷼﷼﷼ *** ???")
     if bad["ratio"] < 0.85:
-        assert bad["wrong"] != "" and bad["correct"] == ""
+        # حتى النص المبعثر بلا دليل بصري لا يُصنَّر wrong بشكل قاطع —
+        # يبقى في uncertain بانتظار فحص السياق (لا تصنيف كاذب بأي اتجاه)
+        assert bad["wrong"] == "" and bad["correct"] == ""
+        assert bad["uncertain"] != ""
 
 
 # ---------- R17 ----------
@@ -237,10 +245,24 @@ def test_charter_uncertainty_labels(charter):
 
 
 def test_x_marker_emits_context_warning(charter):
-    """المبدأ 6: X تحتاج فحص سياق قبل التصنيف."""
+    """المبدأ 6: X تحتاج فحص سياق قبل التصنيف.
+    محدّث لعقد ocr-core v2: العلامة الغامضة تصبح «uncertain» (ليست «incorrect»)
+    مع استمرار إصدار x_warning — لا تغيير صامت للعقد (PR ocr-core#58)."""
     r = charter.apply_visual_rules("text", {"detected": ["X"]})
-    assert r["status"] == "incorrect"
+    assert r["status"] == "uncertain"
     assert r["x_warning"] == "X_REQUIRES_CONTEXT_CHECK"
+
+
+def test_ambiguous_marker_never_correct_without_evidence(charter):
+    """حراسة (قرار المالك في جولة المراجعة): العلامة الغامضة X/x لا تتحول
+    إلى «correct» من دون أدلة كافية — ولا تُحكم «incorrect» قبل فحص السياق."""
+    for m in ("X", "x"):
+        r = charter.apply_visual_rules("text", {"detected": [m]})
+        assert r["status"] != "correct", f"{m} لا يجوز أن تصير correct بلا دليل"
+        assert r["status"] == "uncertain", f"{m} تبقى uncertain قبل فحص السياق"
+    # تحذير السياق مستمر للعلامة الكبيرة (نفس قيمة العقد القديمة)
+    assert (charter.apply_visual_rules("text", {"detected": ["X"]})["x_warning"]
+            == "X_REQUIRES_CONTEXT_CHECK")
 
 
 def test_context_correct_keyword(charter):
@@ -314,6 +336,10 @@ def test_visual_metadata_schema(charter):
 
 
 def test_training_record_keeps_incorrect_separate(charter):
+    """محدّث لعقد ocr-core v2: الترقية تتطلب دليلاً كاملاً قابلاً للتتبع —
+    بلا دليل مكتمل لا ترقية (fail-safe) ويُحفظ المرشح كما هو؛ مع دليل مكتمل
+    تتم الترقية للجهة الموسومة فقط، وتظل الأمثلة منفصلة."""
+    # 1) بلا إثبات كامل: لا ترقية، ولا فقدان للمرشح
     rec = charter.build_training_record(
         source="original",
         correct="correct translation",
@@ -324,10 +350,32 @@ def test_training_record_keeps_incorrect_separate(charter):
             "confidence": "high",
         },
     )
-    assert rec["positive_example"] == "correct translation"
-    assert rec["negative_example"] == "wrong translation"
-    assert rec["positive_example"] != rec["negative_example"]
-    assert rec["status"] == "verified"
+    assert rec["positive_example"] is None, "بلا دليل كامل لا تُرقّى العينة الإيجابية"
+    assert rec["candidate_positive_example"] == "correct translation"
+    assert rec["candidate_negative_example"] == "wrong translation"
+    assert rec["status"] == "uncertain"
+
+    # 2) بدليل مكتمل قابل للتتبع: الترقية تعمل للجهة الموسومة فقط
+    verified = charter.build_training_record(
+        source="original",
+        correct="correct translation",
+        incorrect="wrong translation",
+        evidence={
+            "visual_marker": "check",
+            "color_status": "green",
+            "confidence": "high",
+            "legend_found": True,
+            "evidence_confirmed": True,
+            "label": "positive_example",
+            "source_reference": "page-3.png",
+        },
+    )
+    assert verified["positive_example"] == "correct translation"
+    assert verified["negative_example"] is None  # الترقية موسومة لجهة واحدة
+    assert verified["candidate_negative_example"] == "wrong translation"
+    assert verified["status"] == "verified"
+    # العينات الإيجابية والسلبية تبقى منفصلة تماماً (جوهر الاختبار الأصلي)
+    assert verified["positive_example"] != verified["candidate_negative_example"]
 
 
 def test_build_metadata_has_v1_and_v2_fields(charter, tmp_path):
