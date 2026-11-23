@@ -6,4 +6,4 @@ accelerate>=0.29.0
 evaluate>=0.4.0
 sacrebleu>=2.4.0
 tqdm>=4.66.0
-tensorboard>=2.16.0
+tensorboard>=2.21.0
